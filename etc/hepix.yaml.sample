@@ -16,6 +16,7 @@ vo.fedcloud.egi.eu:
     images:
         - 662b0e71-3e21-5f43-b6a1-cc2f51319fa7
     prefix: "FEDCLOUD "
+    project: bb02bda767b4490a82b2f62f9347a0f5
 
 foo:
     enabled: false
