@@ -16,6 +16,8 @@
 
 import abc
 import os.path
+import subprocess
+import tempfile
 
 from oslo_config import cfg
 from oslo_log import log
@@ -114,6 +116,26 @@ class BaseImage(object):
         LOG.info("Image '%s' present in '%s', checksum OK",
                  self.identifier, location)
         self.verified = True
+
+    def convert(self, dest_formats=[], mode="rb"):
+        fmt, disk = self.get_disk()
+        if (not dest_formats) or (fmt.lower() in dest_formats):
+            return fmt, disk
+        # extract the file to disk and convert to the first format
+        dest_fmt = dest_formats.pop()
+        # TODO: keep converted file in cache
+        converted_location = "%s.%s" % (self.location, dest_fmt)
+        if not os.path.exists(converted_location):
+            with tempfile.NamedTemporaryFile(mode='w+b') as f:
+                block = disk.read(8192)
+                while block:
+                    f.write(block)
+                    f.flush()
+                    block = disk.read(8192)
+                # call qemu
+                cmd = ["qemu-img", "convert", "-f", fmt, "-O", dest_fmt, f.name, converted_location]
+                subprocess.run(cmd)
+        return dest_fmt, open(converted_location, mode)
 
 
 class HepixImage(BaseImage):
