@@ -24,9 +24,16 @@ from oslo_log import log
 from atrope.dispatcher import base
 from atrope import exception
 
-CFG_GROUP = "glance"
 CONF = cfg.CONF
+CFG_GROUP = "glance"
+opts = [
+    cfg.MultiStrOpt("formats",
+                    default=[],
+                    help='Formats to covert images to. Empty for no '
+                         'conversion.'),
+]
 CONF.import_opt("prefix", "atrope.dispatcher.manager", group="dispatchers")
+CONF.register_opts(opts, group=CFG_GROUP)
 
 loading.register_auth_conf_options(CONF, CFG_GROUP)
 loading.register_session_conf_options(CONF, CFG_GROUP)
@@ -154,7 +161,7 @@ class Dispatcher(base.BaseDispatcher):
                 self.client.images.delete(glance_image.id)
                 glance_image = None
 
-        metadata["disk_format"], image_fd = image.get_disk()
+        metadata["disk_format"], image_fd = image.convert(CONF.glance.formats)
         metadata["disk_format"].lower()
         if metadata["disk_format"] not in ['ami', 'ari', 'aki', 'vhd',
                                            'vhdx', 'vmdk', 'raw', 'qcow2',
