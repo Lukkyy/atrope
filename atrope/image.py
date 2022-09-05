@@ -57,6 +57,7 @@ class BaseImage(object):
         self.sha512 = None
         self.identifier = None
         self.location = None
+        self.locations = []
         self.verified = False
 
     @abc.abstractmethod
@@ -123,9 +124,10 @@ class BaseImage(object):
             return fmt, disk
         # extract the file to disk and convert to the first format
         dest_fmt = dest_formats.pop()
-        # TODO: keep converted file in cache
+        LOG.info("Converting image '%s' (%s) into '%s'",
+                 self.identifier, fmt, dest_fmt)
         converted_location = "%s.%s" % (self.location, dest_fmt)
-        if not os.path.exists(converted_location):
+        if not self.verified or not os.path.exists(converted_location):
             with tempfile.NamedTemporaryFile(mode='w+b') as f:
                 block = disk.read(8192)
                 while block:
@@ -134,7 +136,16 @@ class BaseImage(object):
                     block = disk.read(8192)
                 # call qemu
                 cmd = ["qemu-img", "convert", "-f", fmt, "-O", dest_fmt, f.name, converted_location]
-                subprocess.run(cmd)
+                try:
+                    subprocess.run(cmd, check=True)
+                except subprocess.CalledProcessError as e:
+                    LOG.error("Could not convert image: %s", e)
+        else:
+            LOG.info("Found converted image for '%s' -  noop",
+                     self.identifier)
+        self.locations.append(converted_location)
+        LOG.info("Image '%s' converted and stored at %s",
+                 self.identifier, converted_location)
         return dest_fmt, open(converted_location, mode)
 
 
@@ -233,3 +244,4 @@ class HepixImage(BaseImage):
                 self._download(location)
 
         self.location = location
+        self.locations = [location]

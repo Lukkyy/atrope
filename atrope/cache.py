@@ -27,6 +27,10 @@ opts = [
     cfg.StrOpt('path',
                default=paths.state_path_def('lists'),
                help='Where instances are stored on disk'),
+    cfg.MultiStrOpt('formats',
+                    default=[],
+                    help='Formats to covert images to. Empty for no '
+                         'conversion.'),
 ]
 
 CONF = cfg.CONF
@@ -55,12 +59,13 @@ class CacheManager(object):
                 for img in lst.get_subscribed_images():
                     try:
                         img.download(imgdir)
+                        img.convert(CONF.cache.formats)
                     except (exception.ImageVerificationFailed,
                             exception.ImageDownloadFailed):
                         pass
                     else:
-                        pass
-                        self._valid_paths.append(pathlib.Path(img.location))
+                        for p in img.locations:
+                            self._valid_paths.append(pathlib.Path(p))
         else:
             LOG.info(f"List '{lst.name}' is disabled, images will be "
                      "marked for removal")
