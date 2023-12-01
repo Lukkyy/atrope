@@ -54,7 +54,7 @@ class BaseImageListSource(object):
         """Fetch the image list."""
 
     def get_valid_subscribed_images(self):
-        return [i for i in self.get_subscribed_images() if i.verified]
+        return [i for i in self.get_subscribed_images() if i.verified and not i.expired]
 
     def get_subscribed_images(self):
         """Get the subscribed images from the fetched image list."""
