@@ -23,6 +23,5 @@ from atrope.tests import base
 
 
 class TestAtrope(base.TestCase):
-
     def test_something(self):
         pass

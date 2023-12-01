@@ -36,10 +36,12 @@ def add_command_parsers(subparsers):
     version.CommandVersion(subparsers)
 
 
-command_opt = cfg.SubCommandOpt('command',
-                                title='Commands',
-                                help='Show available commands.',
-                                handler=add_command_parsers)
+command_opt = cfg.SubCommandOpt(
+    "command",
+    title="Commands",
+    help="Show available commands.",
+    handler=add_command_parsers,
+)
 
 CONF.register_cli_opt(command_opt)
 

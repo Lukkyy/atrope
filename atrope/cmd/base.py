@@ -1,8 +1,9 @@
 # Decorators for actions
 def args(*args, **kwargs):
     def _decorator(func):
-        func.__dict__.setdefault('args', []).insert(0, (args, kwargs))
+        func.__dict__.setdefault("args", []).insert(0, (args, kwargs))
         return func
+
     return _decorator
 
 
@@ -10,9 +11,11 @@ def name(name):
     """
     Give a command a alternate name
     """
+
     def _decorator(func):
-        func.__dict__['_cmd_name'] = name
+        func.__dict__["_cmd_name"] = name
         return func
+
     return _decorator
 
 

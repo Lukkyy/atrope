@@ -33,7 +33,7 @@ class AtropeException(Exception):
             except Exception:
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
-                LOG.exception('Exception in string format operation')
+                LOG.exception("Exception in string format operation")
                 for name, value in kwargs.items():
                     LOG.error("%s: %s" % (name, value))
                 message = self.msg_fmt
@@ -59,6 +59,10 @@ class ImageListDownloadFailed(AtropeException):
 
 class ImageDownloadFailed(AtropeException):
     msg_fmt = "Cannot get image, reason: (%(code)s) %(reason)s"
+
+
+class ImageConversionError(AtropeException):
+    msg_fmt = "Cannot convert image, reason: (%(code)s) %(reason)s"
 
 
 class InvalidOVAFile(AtropeException):
@@ -107,8 +111,10 @@ class DuplicatedImage(AtropeException):
 
 class ImageListSpecIsBorken(AtropeException):
     # NOTE(aloga): Borken in the class name is intentional
-    msg_fmt = ("The image list spec is broken and I am not able to "
-               "guess what the image format is.")
+    msg_fmt = (
+        "The image list spec is broken and I am not able to "
+        "guess what the image format is."
+    )
 
 
 class MetadataOverwriteNotSupported(AtropeException):

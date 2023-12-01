@@ -21,8 +21,8 @@ from lxml import etree
 from atrope import exception
 
 SPECS = {
-    'http://www.vmware.com/interfaces/specifications/vmdk.html': 'vmdk',
-    'https://people.gnome.org/~markmc/qcow-image-format.html': 'qcow',
+    "http://www.vmware.com/interfaces/specifications/vmdk.html": "vmdk",
+    "https://people.gnome.org/~markmc/qcow-image-format.html": "qcow",
 }
 
 
@@ -42,18 +42,20 @@ def extract_file(ova, filename):
 def get_disk_name(ovf):
     """Get the disk format and file name from a OVF descriptor."""
     root = etree.fromstring(ovf)
-    ovf_ns = root.nsmap['ovf']
+    ovf_ns = root.nsmap["ovf"]
 
-    id_attr = '{%s}id' % ovf_ns
-    href_attr = '{%s}href' % ovf_ns
-    files = {f.get(id_attr): f.get(href_attr) for f in
-             root.findall('ovf:References/ovf:File', root.nsmap)}
+    id_attr = "{%s}id" % ovf_ns
+    href_attr = "{%s}href" % ovf_ns
+    files = {
+        f.get(id_attr): f.get(href_attr)
+        for f in root.findall("ovf:References/ovf:File", root.nsmap)
+    }
 
     # we do not care about more than one disk
-    disk = root.find('ovf:DiskSection/ovf:Disk', root.nsmap)
+    disk = root.find("ovf:DiskSection/ovf:Disk", root.nsmap)
     if disk is not None:
-        format_attr = '{%s}format' % ovf_ns
-        fileref_attr = '{%s}fileRef' % ovf_ns
+        format_attr = "{%s}format" % ovf_ns
+        fileref_attr = "{%s}fileRef" % ovf_ns
         ovf_format = disk.get(format_attr)
         if not ovf_format:
             raise Exception("Expecting some format!")

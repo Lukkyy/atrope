@@ -29,15 +29,17 @@ from atrope import paths
 from atrope import utils
 
 opts = [
-    cfg.StrOpt('download_ca_file',
-               default=paths.state_path_def('atrope-ca-bundle.pem'),
-               help='Atrope will build a CA bundle for verifying the '
-                    'HTTP servers when it is downloading the image, '
-                    'concatenating the default OS CA bundle and the '
-                    'CAs present in the $ca_path directory. This '
-                    'is done as there may be certificates signed by '
-                    'CAs that are trusted by the provider, but untrusted '
-                    'by the default bundle and we need to trust both.'),
+    cfg.StrOpt(
+        "download_ca_file",
+        default=paths.state_path_def("atrope-ca-bundle.pem"),
+        help="Atrope will build a CA bundle for verifying the "
+        "HTTP servers when it is downloading the image, "
+        "concatenating the default OS CA bundle and the "
+        "CAs present in the $ca_path directory. This "
+        "is done as there may be certificates signed by "
+        "CAs that are trusted by the provider, but untrusted "
+        "by the default bundle and we need to trust both.",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -97,8 +99,9 @@ class BaseImage(object):
 
     def verify_checksum(self, location=None):
         """Verify the image's checksum."""
-        LOG.info("Image '%s' present in '%s', verifying checksum",
-                 self.identifier, location)
+        LOG.info(
+            "Image '%s' present in '%s', verifying checksum", self.identifier, location
+        )
 
         location = location or self.location
         if location is None:
@@ -107,12 +110,9 @@ class BaseImage(object):
         sha512 = utils.get_file_checksum(location)
         if sha512.hexdigest() != self.sha512:
             raise exception.ImageVerificationFailed(
-                id=self.identifier,
-                expected=self.sha512,
-                obtained=sha512.hexdigest()
+                id=self.identifier, expected=self.sha512, obtained=sha512.hexdigest()
             )
-        LOG.info("Image '%s' present in '%s', checksum OK",
-                 self.identifier, location)
+        LOG.info("Image '%s' present in '%s', checksum OK", self.identifier, location)
         self.verified = True
 
 
@@ -145,9 +145,9 @@ class HepixImage(BaseImage):
 
         image_dict = image_info.get("hv:image", {})
 
-        utils.ensure_ca_bundle(CONF.download_ca_file,
-                               [requests.certs.where()],
-                               CONF.ca_path)
+        utils.ensure_ca_bundle(
+            CONF.download_ca_file, [requests.certs.where()], CONF.ca_path
+        )
 
         for i in self.required_fields:
             value = image_dict.get(i, None)
@@ -161,22 +161,30 @@ class HepixImage(BaseImage):
         self.appliance_attributes = image_dict
 
     def _download(self, location):
-        LOG.info("Downloading image '%s' from '%s' into '%s'",
-                 self.identifier, self.uri, location)
-        with open(location, 'wb') as f:
+        LOG.info(
+            "Downloading image '%s' from '%s' into '%s'",
+            self.identifier,
+            self.uri,
+            location,
+        )
+        with open(location, "wb") as f:
             try:
-                response = requests.get(self.uri, stream=True,
-                                        verify=CONF.download_ca_file)
+                response = requests.get(
+                    self.uri, stream=True, verify=CONF.download_ca_file
+                )
             except Exception as e:
                 LOG.error(e)
-                raise exception.ImageDownloadFailed(code=e.errno,
-                                                    reason=e)
+                raise exception.ImageDownloadFailed(code=e.errno, reason=e)
 
             if not response.ok:
-                LOG.error("Cannot download image: (%s) %s",
-                          response.status_code, response.reason)
-                raise exception.ImageDownloadFailed(code=response.status_code,
-                                                    reason=response.reason)
+                LOG.error(
+                    "Cannot download image: (%s) %s",
+                    response.status_code,
+                    response.reason,
+                )
+                raise exception.ImageDownloadFailed(
+                    code=response.status_code, reason=response.reason
+                )
 
             for block in response.iter_content(1024):
                 if block:
@@ -188,8 +196,7 @@ class HepixImage(BaseImage):
             LOG.error(e)
             raise
         else:
-            LOG.info("Image '%s' stored as '%s'",
-                     self.identifier, location)
+            LOG.info("Image '%s' stored as '%s'", self.identifier, location)
 
     def download(self, basedir):
         # The image has been already downloaded in this execution.
@@ -205,9 +212,11 @@ class HepixImage(BaseImage):
             try:
                 self.verify_checksum(location=location)
             except exception.ImageVerificationFailed:
-                LOG.warning("Image '%s' present in '%s' is not valid, "
-                            "downloading again",
-                            self.identifier, location)
+                LOG.warning(
+                    "Image '%s' present in '%s' is not valid, " "downloading again",
+                    self.identifier,
+                    location,
+                )
                 self._download(location)
 
         self.location = location

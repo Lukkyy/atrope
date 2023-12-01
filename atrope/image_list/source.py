@@ -28,8 +28,16 @@ LOG = log.getLogger(__name__)
 class BaseImageListSource(object):
     """An image list."""
 
-    def __init__(self, name, url="", enabled=True, subscribed_images=[],
-                 prefix="", project="", **kwargs):
+    def __init__(
+        self,
+        name,
+        url="",
+        enabled=True,
+        subscribed_images=[],
+        prefix="",
+        project="",
+        **kwargs,
+    ):
         self.name = name
         self.url = url
         self.enabled = enabled
@@ -39,10 +47,7 @@ class BaseImageListSource(object):
         self.project = project
 
     def __repr__(self):
-        return "<%s: %s>" % (
-            self.__class__.__name__,
-            self.name
-        )
+        return "<%s: %s>" % (self.__class__.__name__, self.name)
 
     @abc.abstractmethod
     def fetch(self):
@@ -63,8 +68,11 @@ class BaseImageListSource(object):
         if not self.subscribed_images:
             return self.image_list.get_images()
         else:
-            return [img for img in self.image_list.get_images()
-                    if img.identifier in self.subscribed_images]
+            return [
+                img
+                for img in self.image_list.get_images()
+                if img.identifier in self.subscribed_images
+            ]
 
     def get_images(self):
         """Get the images defined in the fetched image list."""

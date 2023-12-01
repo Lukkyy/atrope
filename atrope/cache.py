@@ -24,9 +24,11 @@ from atrope import paths
 from atrope import utils
 
 opts = [
-    cfg.StrOpt('path',
-               default=paths.state_path_def('lists'),
-               help='Where instances are stored on disk'),
+    cfg.StrOpt(
+        "path",
+        default=paths.state_path_def("lists"),
+        help="Where instances are stored on disk",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -44,10 +46,12 @@ class CacheManager(object):
     def _download_list(self, lst):
         LOG.info(f"Syncing list with ID '{lst.name}'")
         if lst.enabled:
-            LOG.info(f"List '{lst.name}' is enabled, checking if downloaded "
-                     "images are valid")
+            LOG.info(
+                f"List '{lst.name}' is enabled, checking if downloaded "
+                "images are valid"
+            )
             basedir = self.path / lst.name
-            imgdir = basedir / 'images'
+            imgdir = basedir / "images"
             if lst.trusted and lst.verified and not lst.expired:
                 utils.makedirs(imgdir)  # FIXME(aloga) pathlib
                 self._valid_paths.append(basedir)
@@ -55,15 +59,18 @@ class CacheManager(object):
                 for img in lst.get_subscribed_images():
                     try:
                         img.download(imgdir)
-                    except (exception.ImageVerificationFailed,
-                            exception.ImageDownloadFailed):
+                    except (
+                        exception.ImageVerificationFailed,
+                        exception.ImageDownloadFailed,
+                    ):
                         pass
                     else:
                         pass
                         self._valid_paths.append(pathlib.Path(img.location))
         else:
-            LOG.info(f"List '{lst.name}' is disabled, images will be "
-                     "marked for removal")
+            LOG.info(
+                f"List '{lst.name}' is disabled, images will be " "marked for removal"
+            )
 
     def _clean_invalid(self, base):
         LOG.info(f"Checking for invalid files in cache dir ({base}).")

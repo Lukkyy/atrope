@@ -25,7 +25,7 @@ CONF = cfg.CONF
 
 def main():
     atrope.config.parse_args(sys.argv)
-    log.setup(cfg.CONF, 'atrope')
+    log.setup(cfg.CONF, "atrope")
     commands.CommandManager().execute()
 
 

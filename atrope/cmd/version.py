@@ -19,8 +19,7 @@ from atrope.cmd import base
 
 
 class CommandVersion(base.BaseCommand):
-    def __init__(self, parser, name="version",
-                 cmd_help="Show verison and exit."):
+    def __init__(self, parser, name="version", cmd_help="Show verison and exit."):
         super(CommandVersion, self).__init__(parser, name, cmd_help)
 
     def run(self):
