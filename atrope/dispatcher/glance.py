@@ -206,7 +206,10 @@ class Dispatcher(base.BaseDispatcher):
                 glance_image.id,
             )
 
-        if metadata.get("vo", None) and project:
+        if glance_image.owner == project:
+            LOG.info("Image '%s' owned by dest project %s.",
+                     image.identifier, project)
+        elif metadata.get("vo", None) and project:
             try:
                 self.client.images.update(glance_image.id, visibility="shared")
                 self.client.image_members.create(glance_image.id, project)
