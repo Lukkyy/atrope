@@ -62,6 +62,7 @@ class CacheManager(object):
                     except (
                         exception.ImageVerificationFailed,
                         exception.ImageDownloadFailed,
+                        exception.ImageExpired,
                     ):
                         pass
                     else:
