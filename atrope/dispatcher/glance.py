@@ -24,6 +24,7 @@ from oslo_log import log
 from atrope.dispatcher import base
 from atrope import exception
 
+CONF = cfg.CONF
 CFG_GROUP = "glance"
 CONF.import_opt("prefix", "atrope.dispatcher.manager", group="dispatchers")
 opts = [
