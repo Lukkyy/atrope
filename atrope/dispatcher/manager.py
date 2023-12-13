@@ -76,7 +76,7 @@ class DispatcherManager(object):
         :param **kwargs: extra metadata to be added to the image.
         """
 
-        LOG.info("Preparing to dispatch list '%s''" % image_list.name)
+        LOG.info("Preparing to dispatch list '%s'" % image_list.name)
 
         kwargs.setdefault("image_list", image_list.name)
         kwargs.setdefault("project", image_list.project)
