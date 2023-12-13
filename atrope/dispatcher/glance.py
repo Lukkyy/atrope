@@ -207,8 +207,7 @@ class Dispatcher(base.BaseDispatcher):
             )
 
         if glance_image.owner == project:
-            LOG.info("Image '%s' owned by dest project %s.",
-                     image.identifier, project)
+            LOG.info("Image '%s' owned by dest project %s.", image.identifier, project)
         elif metadata.get("vo", None) and project:
             try:
                 self.client.images.update(glance_image.id, visibility="shared")

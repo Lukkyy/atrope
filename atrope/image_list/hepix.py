@@ -107,7 +107,6 @@ class HepixImageListSource(source.BaseImageListSource):
         project="",
         **kwargs
     ):
-
         super(HepixImageListSource, self).__init__(
             name,
             url=url,
