@@ -57,6 +57,10 @@ class ImageListDownloadFailed(AtropeException):
     msg_fmt = "Cannot get image list, reason: (%(code)s) %(reason)s"
 
 
+class ImageExpired(AtropeException):
+    msg_fmt = "Image expired, reason: %(reason)s"
+
+
 class ImageDownloadFailed(AtropeException):
     msg_fmt = "Cannot get image, reason: (%(code)s) %(reason)s"
 
