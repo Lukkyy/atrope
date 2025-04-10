@@ -105,6 +105,7 @@ class HepixImageListSource(source.BaseImageListSource):
         subscribed_images=[],
         prefix="",
         project="",
+        file_path=None,
         **kwargs
     ):
         super(HepixImageListSource, self).__init__(
@@ -130,6 +131,8 @@ class HepixImageListSource(source.BaseImageListSource):
 
         self.contents = None
 
+        self.file_path = file_path
+
     def _set_error(func):
         def decorated(self):
             try:
@@ -142,7 +145,7 @@ class HepixImageListSource(source.BaseImageListSource):
 
     @_set_error
     def fetch(self):
-        if self.enabled and self.url:
+        if self.enabled and (self.url or self.file_path):
             self.contents = self._fetch()
             self.verified, self.signer, raw_list = self._verify()
             try:
@@ -166,17 +169,26 @@ class HepixImageListSource(source.BaseImageListSource):
         :raises: exception.ImageListDownloadFailed if it is not possible to get
                  the image.
         """
-        if self.token:
-            auth = (self.token, "x-oauth-basic")
+        if self.file_path:
+            try:
+                with open(self.file_path, "rb") as f:
+                    return f.read()
+            except IOError as e:
+                raise exception.CannotOpenFile(file=self.file_path, errno=e.errno)
+        elif self.url:
+            if self.token:
+                auth = (self.token, "x-oauth-basic")
+            else:
+                auth = None
+            response = requests.get(self.url, auth=auth)
+            if response.status_code != 200:
+                raise exception.ImageListDownloadFailed(
+                    code=response.status_code, reason=response.reason
+                )
+            else:
+                return response.content
         else:
-            auth = None
-        response = requests.get(self.url, auth=auth)
-        if response.status_code != 200:
-            raise exception.ImageListDownloadFailed(
-                code=response.status_code, reason=response.reason
-            )
-        else:
-            return response.content
+            raise exception.InvalidImageList(reason="No URL or file path provided.")
 
     def _verify(self):
         """Verify the image list SMIME signature.

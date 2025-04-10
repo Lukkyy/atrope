@@ -25,6 +25,7 @@ from atrope import cache
 import atrope.dispatcher.manager
 from atrope import exception
 import atrope.image_list.hepix
+import atrope.image_list.harbor
 
 CONF = cfg.CONF
 CONF.import_opt("hepix_sources", "atrope.image_list.hepix", group="sources")
@@ -125,13 +126,38 @@ class YamlImageListManager(BaseImageListManager):
             )
 
         for name, list_meta in image_lists.items():
-            lst = atrope.image_list.hepix.HepixImageListSource(
-                name,
-                url=list_meta.pop("url", ""),
-                enabled=list_meta.pop("enabled", True),
-                subscribed_images=list_meta.pop("images", []),
-                prefix=list_meta.pop("prefix", ""),
-                project=list_meta.pop("project", ""),
-                **list_meta
-            )
-            self.lists[name] = lst
+            source_type = list_meta.pop("type", "hepix").lower()
+            if source_type == "hepix":
+                lst = atrope.image_list.hepix.HepixImageListSource(
+                    name,
+                    url=list_meta.pop("url", ""),
+                    enabled=list_meta.pop("enabled", True),
+                    subscribed_images=list_meta.pop("images", []),
+                    prefix=list_meta.pop("prefix", ""),
+                    project=list_meta.pop("project", ""),
+                    file_path=list_meta.pop("file_path", None),
+                    **list_meta
+                )
+                self.lists[name] = lst
+            elif source_type == "harbor":
+                try:
+                    lst = atrope.image_list.harbor.HarborImageListSource(
+                        name=name,
+                        api_url=list_meta.pop("api_url", ""),
+                        project=list_meta.pop("project", ""),
+                        registry_host=list_meta.pop("registry_host", ""),
+                        enabled=list_meta.pop("enabled", True),
+                        subscribed_images=list_meta.pop("subscribed_images", []),
+                        prefix=list_meta.pop("prefix", ""),
+                        tag_pattern=list_meta.pop("tag_pattern", None),
+                        auth_user=list_meta.pop("auth_user", None),
+                        auth_password=list_meta.pop("auth_password", None),
+                        auth_token=list_meta.pop("auth_token", None),
+                        verify_ssl=list_meta.pop("verify_ssl", True),
+                        page_size=list_meta.pop("page_size", 50),
+                        **list_meta
+                    )
+                    self.add_image_list_source(lst)
+                    LOG.debug(f"Loaded Harbor source: {name}")
+                except Exception as e:
+                    LOG.error(f"Failed to initialize Harbor source '{name}': {e}", exc_info=True)
