@@ -83,7 +83,7 @@ class DispatcherManager(object):
 
         is_public = False if image_list.token else True
 
-        if image_list.image_list is not None:
+        if image_list.image_list is not None and not isinstance(image_list.image_list, list): # TODO(lukas-moder): Refactor this
             if image_list.image_list.vo is not None:
                 kwargs["vo"] = image_list.image_list.vo
 
@@ -102,10 +102,12 @@ class DispatcherManager(object):
                 "list prefix": image_list.prefix,
                 "image name": image.title,
             }
+            LOG.info(image_name)
             self._dispatch_image(image_name, image, is_public, **kwargs)
 
     def _dispatch_image(self, image_name, image, is_public, **kwargs):
         """Dispatch a single image to each of the dispatchers."""
+        LOG.info(f"DISPATCHERS: {self.dispatchers}")
         for dispatcher in self.dispatchers:
             try:
                 dispatcher.dispatch(image_name, image, is_public, **kwargs)

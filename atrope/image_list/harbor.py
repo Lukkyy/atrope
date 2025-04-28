@@ -28,7 +28,7 @@ class HarborImageListSource(source.BaseImageListSource):
         self,
         name,
         api_url="",        # https://harbor.example.com/api/v2.0
-        registry_host="",  # harbor.example.com (needed for oras pull)
+        registry_host="",  # harbor.example.com
         enabled=True,
         subscribed_images=[],
         prefix="",
@@ -36,7 +36,6 @@ class HarborImageListSource(source.BaseImageListSource):
         tag_pattern=None,
         auth_user=None,
         auth_password=None,
-        # auth_token=None,
         verify_ssl=True,
         page_size=50,
         **kwargs,
@@ -54,13 +53,13 @@ class HarborImageListSource(source.BaseImageListSource):
         self.tag_pattern_re = re.compile(tag_pattern) if tag_pattern else None
         self.auth_user = auth_user
         self.auth_password = auth_password
-        # self.auth_token = auth_token
         self.verify_ssl = verify_ssl
         self.page_size = page_size
         self.image_list = []
         self.error = None
         self._session = None
         self.endorser = kwargs.get("endorser", {})
+        self.token = kwargs.get("token", "")
 
         # CHANGE THIS LATER
         self.trusted = True
@@ -178,7 +177,7 @@ class HarborImageListSource(source.BaseImageListSource):
 
             if process_this_tag:
                 try:
-                    image_ref = f"{self.registry_host}/{repo_name}:{tag_name}"
+                    image_ref = f"{repo_name}:{tag_name}"
                     print(repo_name)
                     annotations = artifact.get("extra_attrs", {}).get("annotations", {})
                     digest = artifact.get("digest", "")
@@ -188,7 +187,7 @@ class HarborImageListSource(source.BaseImageListSource):
                     if not annotations:
                         LOG.warning(f"No annotations found for {image_ref} in API list response.")
 
-                    img = image.HarborImage(image_ref, annotations, self.name, digest)
+                    img = image.HarborImage(image_ref, self.registry_host, self.auth_user, self.auth_password, annotations, self.name, digest)
                     self.image_list.append(img)
                     processed_artifact_tags.add(tag_name)
                     LOG.debug(f"Added Harbor image from API: {image_ref}")
@@ -289,6 +288,9 @@ class HarborImageListSource(source.BaseImageListSource):
                 for img in self.image_list
                 if img.identifier in self.subscribed_images
             ]
+    
+    def get_valid_subscribed_images(self):
+        return [i for i in self.get_subscribed_images() if i.verified and not i.expired]
 
     def get_images(self):
         """Get the images defined in the fetched image list."""

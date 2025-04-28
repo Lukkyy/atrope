@@ -27,6 +27,7 @@ from oslo_log import log
 import requests
 import requests.certs
 import six
+import oras.provider
 
 from atrope import exception
 from atrope import ovf
@@ -155,7 +156,7 @@ class BaseImage(object):
                     subprocess.run(cmd, capture_output=True, check=True)
                 except subprocess.CalledProcessError as e:
                     LOG.error("Could not convert image: %s", e)
-                    raise exception.ImageConversionerror(
+                    raise exception.ImageConversionError(
                         code=e.returncode, reason=e.stderr
                     )
         else:
@@ -292,7 +293,7 @@ class HepixImage(BaseImage):
 class HarborImage(BaseImage):
     """Represents an image fetched via Harbor API, downloaded via oras."""
 
-    def __init__(self, image_ref, annotations, list_name, digest):
+    def __init__(self, image_ref, registry_host, username, password, annotations, list_name, digest):
         """
         Initialize HarborImage.
 
@@ -304,11 +305,14 @@ class HarborImage(BaseImage):
         super(HarborImage, self).__init__(annotations)
 
         self.image_ref = image_ref
+        self.registry_host = registry_host
+        self.registry_username = username
+        self.registry_pwd = password
         self.list_name = list_name
         self.annotations = annotations if annotations else {}
         self.digest = digest  # SHA256 identifier of the image
 
-        self.identifier = f"{image_ref}-{digest}"
+        self.identifier = f"{registry_host}/{image_ref}-{digest}"
 
         self.format = self.annotations.get("org.openstack.glance.disk_format", "raw")
         self.container_format = self.annotations.get("org.openstack.glance.container_format", "bare")
@@ -322,25 +326,24 @@ class HarborImage(BaseImage):
         self.uri = image_ref
         self.location = None
         self.locations = []
-        self.verified = False
+        self.verified = True
         self.expired = False
 
+        # For glance dispatcher TODO(lukas-moder): Clean up the attributes of HarborImage
+        self.title = image_ref
+        self.arch = "x86_64" #TODO(lukas-moder): Where to get this in Harbor
+        self.osname = "Alpine"
+        self.osversion = "3.21.3"
+        self.description = "Test description for Demo"
+        self.mpuri = self.uri
         LOG.debug(f"HarborImage initialized: {self.identifier}, format={self.format}")
 
-    def _run_oras_pull(self, command_list):
+    def _run_oras_pull(self, location: str):
         """Helper specifically for running oras pull command."""
         try:
-            LOG.debug(f"Running oras command: {' '.join(command_list)}")
-            result = subprocess.run(
-                command_list,
-                capture_output=True,
-                text=True,
-                check=True,
-                encoding='utf-8'
-            )
-            LOG.debug(f"Oras pull successful. Stdout: {result.stdout[:200]}...")
-            print(result.stdout)
-            return result.stdout
+            registry = oras.provider.Registry(self.registry_host, insecure=True, tls_verify=False, auth_backend="basic")
+            registry.login(username=self.registry_username, password=self.registry_pwd)
+            result_pull = registry.pull(target=self.image_ref, outdir=location)
         except FileNotFoundError:
             raise exception.AtropeException(message="oras command not found. Please ensure oras CLI is installed and in PATH.")
         except subprocess.CalledProcessError as e:
@@ -365,15 +368,11 @@ class HarborImage(BaseImage):
 
         with tempfile.TemporaryDirectory(suffix=f"-{self.list_name}") as tmpdir:
             LOG.info(f"Downloading Harbor image {self.identifier} ({self.image_ref}) using oras to {tmpdir}")
-            pull_cmd = ["oras", "pull", "--insecure", "--allow-path-traversal", self.image_ref, "-o", tmpdir]
-
             try:
-                self._run_oras_pull(pull_cmd)
+                self._run_oras_pull(tmpdir)
             except exception.ImageDownloadFailed as e:
                 LOG.error(f"Failed to download {self.identifier} using oras: {e}")
                 raise
-
-            print(f"Pulled image TTTTOOOO {tmpdir}")
 
             pulled_files = os.listdir(tmpdir)
             if not pulled_files:

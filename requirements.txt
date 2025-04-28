@@ -15,3 +15,6 @@ python-dateutil
 python-keystoneclient
 python-glanceclient
 keystoneauth1
+
+oras
+docker
