@@ -24,16 +24,26 @@ from oslo_log import log
 from atrope.dispatcher import base
 from atrope import exception
 
-CFG_GROUP = "glance"
 CONF = cfg.CONF
+CFG_GROUP = "glance"
 CONF.import_opt("prefix", "atrope.dispatcher.manager", group="dispatchers")
+opts = [
+    cfg.ListOpt(
+        "formats",
+        default=[],
+        help="Formats to covert images to. Empty for no " "conversion.",
+    ),
+]
+CONF.register_opts(opts, group=CFG_GROUP)
 
 loading.register_auth_conf_options(CONF, CFG_GROUP)
 loading.register_session_conf_options(CONF, CFG_GROUP)
 
-opts = (loading.get_auth_common_conf_options() +
-        loading.get_session_conf_options() +
-        loading.get_auth_plugin_conf_options('password'))
+opts = (
+    loading.get_auth_common_conf_options()
+    + loading.get_session_conf_options()
+    + loading.get_auth_plugin_conf_options("password")
+)
 
 LOG = log.getLogger(__name__)
 
@@ -63,6 +73,7 @@ class Dispatcher(base.BaseDispatcher):
         - container_format
 
     """
+
     def __init__(self):
         self.client = self._get_glance_client()
         self.ks_client = self._get_ks_client()
@@ -71,25 +82,28 @@ class Dispatcher(base.BaseDispatcher):
         # container format? Or is it the image format? Try to do some ugly
         # magic and infer what is this for...
         # This makes me sad :-(
-        LOG.debug("The image spec is broken and I will try to guess what "
-                  "the container and the image format are. I cannot "
-                  "promise anything.")
+        LOG.debug(
+            "The image spec is broken and I will try to guess what "
+            "the container and the image format are. I cannot "
+            "promise anything."
+        )
 
     def _get_ks_client(self):
         auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
-        sess = loading.load_session_from_conf_options(CONF, CFG_GROUP,
-                                                      auth=auth_plugin)
+        sess = loading.load_session_from_conf_options(CONF, CFG_GROUP, auth=auth_plugin)
         return ks_client_v3.Client(session=sess)
 
     def _get_glance_client(self, project_id=None):
         if project_id:
             auth_plugin = loading.load_auth_from_conf_options(
-                CONF, CFG_GROUP, project_id=project_id)
+                CONF, CFG_GROUP, project_id=project_id
+            )
         else:
             auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
 
-        session = loading.load_session_from_conf_options(CONF, CFG_GROUP,
-                                                         auth=auth_plugin)
+        session = loading.load_session_from_conf_options(
+            CONF, CFG_GROUP, auth=auth_plugin
+        )
         return glanceclient.client.Client(2, session=session)
 
     def dispatch(self, image_name, image, is_public, **kwargs):
@@ -119,7 +133,7 @@ class Dispatcher(base.BaseDispatcher):
 
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
-            metadata['APPLIANCE_ATTRIBUTES'] = json.dumps(appliance_attrs)
+            metadata["APPLIANCE_ATTRIBUTES"] = json.dumps(appliance_attrs)
 
         project = kwargs.pop("project")
 
@@ -138,8 +152,11 @@ class Dispatcher(base.BaseDispatcher):
         images = list(self.client.images.list(**kwargs))
         if len(images) > 1:
             images = [img.id for img in images]
-            LOG.error("Found several images with same sha512, please remove "
-                      "them manually and run atrope again: %s", images)
+            LOG.error(
+                "Found several images with same sha512, please remove "
+                "them manually and run atrope again: %s",
+                images,
+            )
             raise exception.DuplicatedImage(images=images)
 
         try:
@@ -148,17 +165,31 @@ class Dispatcher(base.BaseDispatcher):
             glance_image = None
         else:
             if glance_image.sha512 != image.sha512:
-                LOG.warning("Image '%s' is '%s' in glance but sha512 checksums"
-                            "are different, deleting it and reuploading.",
-                            image.identifier, glance_image.id)
+                LOG.warning(
+                    "Image '%s' is '%s' in glance but sha512 checksums"
+                    "are different, deleting it and reuploading.",
+                    image.identifier,
+                    glance_image.id,
+                )
                 self.client.images.delete(glance_image.id)
                 glance_image = None
 
-        metadata["disk_format"], image_fd = image.get_disk()
-        metadata["disk_format"].lower()
-        if metadata["disk_format"] not in ['ami', 'ari', 'aki', 'vhd',
-                                           'vhdx', 'vmdk', 'raw', 'qcow2',
-                                           'vdi', 'iso', 'ploop', 'root-tar']:
+        metadata["disk_format"], image_fd = image.convert(CONF.glance.formats)
+        metadata["disk_format"] = metadata["disk_format"].lower()
+        if metadata["disk_format"] not in [
+            "ami",
+            "ari",
+            "aki",
+            "vhd",
+            "vhdx",
+            "vmdk",
+            "raw",
+            "qcow2",
+            "vdi",
+            "iso",
+            "ploop",
+            "root-tar",
+        ]:
             metadata["disk_format"] = "raw"
 
         if not glance_image:
@@ -170,29 +201,39 @@ class Dispatcher(base.BaseDispatcher):
             self._upload(glance_image.id, image_fd)
 
         if glance_image.status == "active":
-            LOG.info("Image '%s' stored in glance as '%s'.",
-                     image.identifier, glance_image.id)
+            LOG.info(
+                "Image '%s' stored in glance as '%s'.",
+                image.identifier,
+                glance_image.id,
+            )
 
-        if metadata.get("vo", None) and project:
+        if glance_image.owner == project:
+            LOG.info("Image '%s' owned by dest project %s.", image.identifier, project)
+        elif metadata.get("vo", None) and project:
             try:
-                self.client.images.update(glance_image.id,
-                                          visibility="shared")
-                self.client.image_members.create(glance_image.id,
-                                                 project)
+                self.client.images.update(glance_image.id, visibility="shared")
+                self.client.image_members.create(glance_image.id, project)
             except glance_exc.HTTPConflict:
-                LOG.debug("Image '%s' already associated with VO '%s', "
-                          "tenant '%s'",
-                          image.identifier, metadata["vo"], project)
+                LOG.debug(
+                    "Image '%s' already associated with VO '%s', " "tenant '%s'",
+                    image.identifier,
+                    metadata["vo"],
+                    project,
+                )
             finally:
                 client = self._get_glance_client(project_id=project)
-                client.image_members.update(glance_image.id,
-                                            project, 'accepted')
+                client.image_members.update(glance_image.id, project, "accepted")
 
-                LOG.info("Image '%s' associated with VO '%s', project '%s'",
-                         image.identifier, metadata["vo"], project)
+                LOG.info(
+                    "Image '%s' associated with VO '%s', project '%s'",
+                    image.identifier,
+                    metadata["vo"],
+                    project,
+                )
         else:
-            LOG.error("Image '%s' does not have a project associated!" %
-                      image.identifier)
+            LOG.error(
+                "Image '%s' does not have a project associated!" % image.identifier
+            )
 
     def sync(self, image_list):
         """Sunc image list with dispached images.
@@ -206,13 +247,13 @@ class Dispatcher(base.BaseDispatcher):
                 "image_list": image_list.name,
             }
         }
-        valid_images = [i.identifier
-                        for i in image_list.get_valid_subscribed_images()]
+        valid_images = [i.identifier for i in image_list.get_valid_subscribed_images()]
         for image in self.client.images.list(**kwargs):
             appdb_id = image.get("appdb_id", "")
             if appdb_id not in valid_images:
-                LOG.warning("Glance image '%s' is not valid anymore, "
-                            "deleting it", image.id)
+                LOG.warning(
+                    "Glance image '%s' is not valid anymore, " "deleting it", image.id
+                )
                 self.client.images.delete(image.id)
 
         LOG.info("Sync terminated for image list '%s'", image_list.name)

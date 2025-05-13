@@ -60,10 +60,10 @@ class BaseImageListManager(object):
         try:
             lst.fetch()
         except exception.AtropeException as e:
-            LOG.error("Error loading list '%s' from '%s', reason: %s",
-                      lst.name, lst.url, e)
-            LOG.debug("Exception while downloading list '%s'",
-                      lst.name, exc_info=e)
+            LOG.error(
+                "Error loading list '%s' from '%s', reason: %s", lst.name, lst.url, e
+            )
+            LOG.debug("Exception while downloading list '%s'", lst.name, exc_info=e)
         return lst
 
     def add_image_list_source(self, image_list, force=False):
@@ -120,8 +120,9 @@ class YamlImageListManager(BaseImageListManager):
             with open(CONF.sources.hepix_sources, "rb") as f:
                 image_lists = yaml.safe_load(f) or {}
         except IOError as e:
-            raise exception.CannotOpenFile(file=CONF.sources.hepix_sources,
-                                           errno=e.errno)
+            raise exception.CannotOpenFile(
+                file=CONF.sources.hepix_sources, errno=e.errno
+            )
 
         for name, list_meta in image_lists.items():
             lst = atrope.image_list.hepix.HepixImageListSource(
@@ -131,5 +132,6 @@ class YamlImageListManager(BaseImageListManager):
                 subscribed_images=list_meta.pop("images", []),
                 prefix=list_meta.pop("prefix", ""),
                 project=list_meta.pop("project", ""),
-                **list_meta)
+                **list_meta
+            )
             self.lists[name] = lst

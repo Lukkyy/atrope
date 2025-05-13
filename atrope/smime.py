@@ -23,9 +23,11 @@ from oslo_config import cfg
 from atrope import exception
 
 opts = [
-    cfg.StrOpt('ca_path',
-               default='/etc/grid-security/certificates/',
-               help='Where to find CA certificates to verify against.'),
+    cfg.StrOpt(
+        "ca_path",
+        default="/etc/grid-security/certificates/",
+        help="Where to find CA certificates to verify against.",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -34,12 +36,10 @@ CONF.register_opts(opts)
 
 class Signer(object):
     def __init__(self, dn, ca):
-        aux = [(i.decode("utf-8"), j.decode("utf-8"))
-               for i, j in dn.get_components()]
+        aux = [(i.decode("utf-8"), j.decode("utf-8")) for i, j in dn.get_components()]
         aux = "/".join(["=".join(i) for i in aux])
         self.dn = f"/{aux}"
-        aux = [(i.decode("utf-8"), j.decode("utf-8"))
-               for i, j in ca.get_components()]
+        aux = [(i.decode("utf-8"), j.decode("utf-8")) for i, j in ca.get_components()]
         aux = "/".join(["=".join(i) for i in aux])
         self.ca = f"/{aux}"
 
@@ -56,31 +56,36 @@ class SMIMEVerifier(object):
         return Signer(signer, issuer), verified_data
 
     def _extract_signer_issuer_and_subject(self, signer):
-        x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM,
-                                               signer)
+        x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, signer)
         return x509.get_issuer(), x509.get_subject()
 
     def _get_signer_cert_and_verify(self, data):
         with tempfile.NamedTemporaryFile(mode="r", delete=True) as signer_file:
-            process = subprocess.Popen(["openssl",
-                                        "smime",
-                                        "-verify",
-                                        "-signer", signer_file.name,
-                                        "-CApath", CONF.ca_path],
-                                       stdin=subprocess.PIPE,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                [
+                    "openssl",
+                    "smime",
+                    "-verify",
+                    "-signer",
+                    signer_file.name,
+                    "-CApath",
+                    CONF.ca_path,
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
             output, err = process.communicate(data)
             retcode = process.poll()
             if err is not None:
-                err = err.decode('utf-8')
+                err = err.decode("utf-8")
 
             if retcode == 2:
                 raise exception.SMIMEValidationError(err=err)
             elif retcode:
                 # NOTE(dmllr): Python 2.6 compatibility:
                 # CalledProcessError did not have output keyword argument
-                e = subprocess.CalledProcessError(retcode, 'openssl')
+                e = subprocess.CalledProcessError(retcode, "openssl")
                 e.output = err
                 raise e
 

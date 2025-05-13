@@ -27,12 +27,12 @@ import atrope.smime
 
 def list_opts():
     return [
-        ('DEFAULT', itertools.chain(atrope.image.opts,
-                                    atrope.paths.opts,
-                                    atrope.smime.opts)
-         ),
-        ('cache', atrope.cache.opts),
-        ('sources', atrope.image_list.hepix.opts),
-        ('dispatcher', atrope.dispatcher.manager.opts),
-        ('glance', atrope.dispatcher.glance.opts),
+        (
+            "DEFAULT",
+            itertools.chain(atrope.image.opts, atrope.paths.opts, atrope.smime.opts),
+        ),
+        ("cache", atrope.cache.opts),
+        ("sources", atrope.image_list.hepix.opts),
+        ("dispatcher", atrope.dispatcher.manager.opts),
+        ("glance", atrope.dispatcher.glance.opts),
     ]

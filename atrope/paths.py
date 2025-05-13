@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 
 # Copyright 2010 United States Government as represented by the
@@ -24,13 +23,16 @@ import os
 from oslo_config import cfg
 
 opts = [
-    cfg.StrOpt('basedir',
-               default=os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    '../')),
-               help='Directory where the atrope python module is installed'),
-    cfg.StrOpt('state_path',
-               default='$basedir',
-               help="Top-level directory for maintaining atrope's state"),
+    cfg.StrOpt(
+        "basedir",
+        default=os.path.abspath(os.path.join(os.path.dirname(__file__), "../")),
+        help="Directory where the atrope python module is installed",
+    ),
+    cfg.StrOpt(
+        "state_path",
+        default="$basedir",
+        help="Top-level directory for maintaining atrope's state",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -39,4 +41,4 @@ CONF.register_opts(opts)
 
 def state_path_def(*args):
     """Return an uninterpolated path relative to $state_path."""
-    return os.path.join('$state_path', *args)
+    return os.path.join("$state_path", *args)

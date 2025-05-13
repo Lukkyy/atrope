@@ -32,9 +32,11 @@ from atrope import smime
 from atrope import utils
 
 opts = [
-    cfg.StrOpt('hepix_sources',
-               default='/etc/atrope/hepix.yaml',
-               help='Where the HEPiX image list sources are stored.'),
+    cfg.StrOpt(
+        "hepix_sources",
+        default="/etc/atrope/hepix.yaml",
+        help="Where the HEPiX image list sources are stored.",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -49,6 +51,7 @@ class HepixImageList(object):
     Objects of this class will hold the representation of the
     downloaded Hepix image list.
     """
+
     required_fields = (
         "dc:date:created",
         "dc:date:expires",
@@ -85,7 +88,7 @@ class HepixImageList(object):
         for img_meta in meta.get("hv:images"):
             self.images.append(image.HepixImage(img_meta))
 
-        self.vo = meta.get('ad:vo', None)
+        self.vo = meta.get("ad:vo", None)
 
     def get_images(self):
         return self.images
@@ -94,16 +97,23 @@ class HepixImageList(object):
 class HepixImageListSource(source.BaseImageListSource):
     """An image list."""
 
-    def __init__(self, name, url="", enabled=True, subscribed_images=[],
-                 prefix="", project="", **kwargs):
-
+    def __init__(
+        self,
+        name,
+        url="",
+        enabled=True,
+        subscribed_images=[],
+        prefix="",
+        project="",
+        **kwargs
+    ):
         super(HepixImageListSource, self).__init__(
             name,
             url=url,
             enabled=enabled,
             subscribed_images=subscribed_images,
             prefix=prefix,
-            project=project
+            project=project,
         )
 
         self.token = kwargs.get("token", "")
@@ -127,6 +137,7 @@ class HepixImageListSource(source.BaseImageListSource):
             except Exception as e:
                 self.error = e
                 raise
+
         return decorated
 
     @_set_error
@@ -156,13 +167,14 @@ class HepixImageListSource(source.BaseImageListSource):
                  the image.
         """
         if self.token:
-            auth = (self.token, 'x-oauth-basic')
+            auth = (self.token, "x-oauth-basic")
         else:
             auth = None
         response = requests.get(self.url, auth=auth)
         if response.status_code != 200:
-            raise exception.ImageListDownloadFailed(code=response.status_code,
-                                                    reason=response.reason)
+            raise exception.ImageListDownloadFailed(
+                code=response.status_code, reason=response.reason
+            )
         else:
             return response.content
 
@@ -189,18 +201,25 @@ class HepixImageListSource(source.BaseImageListSource):
 
         list_endorser = self.image_list.endorser
         msg = None
-        if (self.signer.dn != list_endorser.dn or
-                self.signer.ca != list_endorser.ca):
-            msg = ("List '%s' signer != list endorser "
-                   "'%s' != '%s'" %
-                   (self.name, self.signer, list_endorser))
+        if self.signer.dn != list_endorser.dn or self.signer.ca != list_endorser.ca:
+            msg = "List '%s' signer != list endorser " "'%s' != '%s'" % (
+                self.name,
+                self.signer,
+                list_endorser,
+            )
         elif self.endorser["dn"] != list_endorser.dn:
-            msg = ("List '%s' endorser is not trusted, DN mismatch "
-                   "'%s' != '%s'" %
-                   self.name, self.endorser["dn"], list_endorser.dn)
+            msg = (
+                "List '%s' endorser is not trusted, DN mismatch "
+                "'%s' != '%s'" % self.name,
+                self.endorser["dn"],
+                list_endorser.dn,
+            )
         elif self.endorser["ca"] != list_endorser.ca:
-            msg = ("List '%s' endorser CA is invalid '%s' != '%s'" %
-                   self.name, self.endorser["ca"], list_endorser.ca)
+            msg = (
+                "List '%s' endorser CA is invalid '%s' != '%s'" % self.name,
+                self.endorser["ca"],
+                list_endorser.ca,
+            )
         if msg:
             LOG.error(msg)
             self.error = msg
@@ -210,8 +229,7 @@ class HepixImageListSource(source.BaseImageListSource):
     def _check_expiry(self):
         now = datetime.datetime.now(dateutil.tz.tzlocal())
         if self.image_list.expires < now:
-            LOG.warning("List '%s' expired on '%s'",
-                        self.name, self.image_list.expires)
+            LOG.warning("List '%s' expired on '%s'", self.name, self.image_list.expires)
             return True
         return False
 

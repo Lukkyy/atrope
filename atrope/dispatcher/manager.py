@@ -19,14 +19,16 @@ from atrope import exception
 from atrope import importutils
 
 opts = [
-    cfg.MultiStrOpt('dispatcher',
-                    default=['noop'],
-                    help='Dispatcher to process images. Can be specified '
-                         'multiple times.'),
-    cfg.StrOpt('prefix',
-               default="",
-               help="If set, the image name's will be prefixed by this "
-               "option."),
+    cfg.MultiStrOpt(
+        "dispatcher",
+        default=["noop"],
+        help="Dispatcher to process images. Can be specified " "multiple times.",
+    ),
+    cfg.StrOpt(
+        "prefix",
+        default="",
+        help="If set, the image name's will be prefixed by this " "option.",
+    ),
 ]
 
 CONF = cfg.CONF
@@ -34,7 +36,7 @@ CONF.register_opts(opts, group="dispatchers")
 
 LOG = log.getLogger(__name__)
 
-DISPATCHER_NAMESPACE = 'atrope.dispatcher'
+DISPATCHER_NAMESPACE = "atrope.dispatcher"
 
 
 class DispatcherManager(object):
@@ -74,7 +76,7 @@ class DispatcherManager(object):
         :param **kwargs: extra metadata to be added to the image.
         """
 
-        LOG.info("Preparing to dispatch list '%s''" % image_list.name)
+        LOG.info("Preparing to dispatch list '%s'" % image_list.name)
 
         kwargs.setdefault("image_list", image_list.name)
         kwargs.setdefault("project", image_list.project)
@@ -88,15 +90,18 @@ class DispatcherManager(object):
         try:
             images = image_list.get_valid_subscribed_images()
         except exception.ImageListNotFetched:
-            LOG.warning(f"Image list {image_list.name} has not been fetched "
-                        "skipping dispatch.")
+            LOG.warning(
+                f"Image list {image_list.name} has not been fetched "
+                "skipping dispatch."
+            )
             images = []
 
         for image in images:
-            image_name = ("%(global prefix)s%(list prefix)s%(image name)s" %
-                          {"global prefix": CONF.dispatchers.prefix,
-                           "list prefix": image_list.prefix,
-                           "image name": image.title})
+            image_name = "%(global prefix)s%(list prefix)s%(image name)s" % {
+                "global prefix": CONF.dispatchers.prefix,
+                "list prefix": image_list.prefix,
+                "image name": image.title,
+            }
             self._dispatch_image(image_name, image, is_public, **kwargs)
 
     def _dispatch_image(self, image_name, image, is_public, **kwargs):
@@ -105,6 +110,8 @@ class DispatcherManager(object):
             try:
                 dispatcher.dispatch(image_name, image, is_public, **kwargs)
             except Exception as e:
-                LOG.exception("An exception has occured when dispatching "
-                              "image %s" % image.identifier)
+                LOG.exception(
+                    "An exception has occured when dispatching "
+                    "image %s" % image.identifier
+                )
                 LOG.exception(e)

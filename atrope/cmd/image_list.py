@@ -36,8 +36,9 @@ class BaseImageListCommand(base.BaseCommand):
 
 
 class CommandImageListIndex(BaseImageListCommand):
-    def __init__(self, parser, name="index",
-                 cmd_help="Show the configured image lists."):
+    def __init__(
+        self, parser, name="index", cmd_help="Show the configured image lists."
+    ):
         super(CommandImageListIndex, self).__init__(parser, name, cmd_help)
 
     def run(self):
@@ -55,21 +56,26 @@ class CommandImageListIndex(BaseImageListCommand):
 
 
 class CommandImageListFetch(BaseImageListCommand):
-    def __init__(self, parser, name="verify",
-                 cmd_help="Fetch and verify the configured image lists."):
+    def __init__(
+        self,
+        parser,
+        name="verify",
+        cmd_help="Fetch and verify the configured image lists.",
+    ):
         super(CommandImageListFetch, self).__init__(parser, name, cmd_help)
 
-        self.parser.add_argument("-c",
-                                 "--contents",
-                                 dest="contents",
-                                 default=False,
-                                 action="store_true",
-                                 help="Show the list contents")
+        self.parser.add_argument(
+            "-c",
+            "--contents",
+            dest="contents",
+            default=False,
+            action="store_true",
+            help="Show the list contents",
+        )
 
-        self.parser.add_argument("list",
-                                 default=None,
-                                 nargs='?',
-                                 help="Image list to fetch.")
+        self.parser.add_argument(
+            "list", default=None, nargs="?", help="Image list to fetch."
+        )
 
     def run(self):
         the_list = CONF.command.list
@@ -84,8 +90,12 @@ class CommandImageListFetch(BaseImageListCommand):
 
 
 class CommandImageListCache(BaseImageListCommand):
-    def __init__(self, parser, name="cache",
-                 cmd_help="Download images from configured image lists."):
+    def __init__(
+        self,
+        parser,
+        name="cache",
+        cmd_help="Download images from configured image lists.",
+    ):
         super(CommandImageListCache, self).__init__(parser, name, cmd_help)
 
     def run(self):
@@ -93,9 +103,13 @@ class CommandImageListCache(BaseImageListCommand):
 
 
 class CommandDispatch(BaseImageListCommand):
-    def __init__(self, parser, name="sync",
-                 cmd_help="Download images from configured image lists "
-                          "and sync them to the available dispatchers."):
+    def __init__(
+        self,
+        parser,
+        name="sync",
+        cmd_help="Download images from configured image lists "
+        "and sync them to the available dispatchers.",
+    ):
         super(CommandDispatch, self).__init__(parser, name, cmd_help)
 
     def run(self):

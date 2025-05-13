@@ -15,5 +15,4 @@
 import pbr.version
 
 
-__version__ = pbr.version.VersionInfo(
-    'atrope').release_string()
+__version__ = pbr.version.VersionInfo("atrope").release_string()
