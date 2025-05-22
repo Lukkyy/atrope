@@ -5,13 +5,15 @@
 # print(result_login)
 # result_pull = registry.pull(target="myproject/oci-alpine:v1")
 # print(result_pull)
+import docker
 import oras.provider
 from oras.logger import logger, setup_logger
-import docker
 
 setup_logger(quiet=False, debug=True)
 
-registry = oras.provider.Registry("192.168.0.165", insecure=True, tls_verify=False, auth_backend="basic")
+registry = oras.provider.Registry(
+    "192.168.0.165", insecure=True, tls_verify=False, auth_backend="basic"
+)
 
 # Other ways to handle login:
 # client.set_basic_auth(username, password)
@@ -19,7 +21,9 @@ registry = oras.provider.Registry("192.168.0.165", insecure=True, tls_verify=Fal
 
 try:
     registry.login(username="admin", password="Harbor12345")
-    result_pull = registry.pull(target="myproject/oci_alpine:latest", outdir="/home/lukas-moder/Desktop")
+    result_pull = registry.pull(
+        target="myproject/oci_alpine:latest", outdir="/home/lukas-moder/Desktop"
+    )
     print(result_pull)
     logger.info(result_pull)
 except Exception as e:

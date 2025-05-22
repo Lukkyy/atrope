@@ -4,16 +4,15 @@
 
 import json
 import pprint
-import requests
 import re
 from urllib.parse import quote_plus
 
+import requests
 from oslo_config import cfg
 from oslo_log import log
 
-from atrope import exception, utils
+from atrope import exception, image, utils
 from atrope.image_list import source
-from atrope import image
 
 LOG = log.getLogger(__name__)
 CONF = cfg.CONF
@@ -27,7 +26,7 @@ class HarborImageListSource(source.BaseImageListSource):
     def __init__(
         self,
         name,
-        api_url="",        # https://harbor.example.com/api/v2.0
+        api_url="",  # https://harbor.example.com/api/v2.0
         registry_host="",  # harbor.example.com
         enabled=True,
         subscribed_images=[],
@@ -48,8 +47,10 @@ class HarborImageListSource(source.BaseImageListSource):
             prefix=prefix,
             project=project,
         )
-        self.api_url = api_url.rstrip('/')
-        self.registry_host = registry_host or self.api_url.split('//', 1)[-1].split('/', 1)[0]
+        self.api_url = api_url.rstrip("/")
+        self.registry_host = (
+            registry_host or self.api_url.split("//", 1)[-1].split("/", 1)[0]
+        )
         self.tag_pattern_re = re.compile(tag_pattern) if tag_pattern else None
         self.auth_user = auth_user
         self.auth_password = auth_password
@@ -78,10 +79,14 @@ class HarborImageListSource(source.BaseImageListSource):
             elif self.auth_token:
                 self._session.headers.update({"Authorization": self.auth_token})
             else:
-                LOG.warning(f"No authentication configured for Harbor source {self.name}")
+                LOG.warning(
+                    f"No authentication configured for Harbor source {self.name}"
+                )
             self._session.verify = self.verify_ssl
             if not self.verify_ssl:
-                requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+                requests.packages.urllib3.disable_warnings(
+                    requests.packages.urllib3.exceptions.InsecureRequestWarning
+                )
 
         return self._session
 
@@ -91,7 +96,10 @@ class HarborImageListSource(source.BaseImageListSource):
                 func(self)
             except Exception as e:
                 self.error = e
-                LOG.error(f"Failed to fetch Harbor list '{self.name}': {e}", exc_info=True)
+                LOG.error(
+                    f"Failed to fetch Harbor list '{self.name}': {e}", exc_info=True
+                )
+
         return decorated
 
     def _fetch_paginated_data(self, url, params=None):
@@ -103,11 +111,13 @@ class HarborImageListSource(source.BaseImageListSource):
 
         while current_url:
             current_params = params.copy() if params else {}
-            current_params['page'] = page
-            current_params['page_size'] = self.page_size
+            current_params["page"] = page
+            current_params["page_size"] = self.page_size
 
             try:
-                LOG.debug(f"Fetching page {page} from {current_url} with params {current_params}")
+                LOG.debug(
+                    f"Fetching page {page} from {current_url} with params {current_params}"
+                )
                 response = session.get(current_url, params=current_params)
                 response.raise_for_status()
                 data = response.json()
@@ -116,13 +126,13 @@ class HarborImageListSource(source.BaseImageListSource):
                     break
                 results.extend(data)
 
-                link_header = response.headers.get('Link')
+                link_header = response.headers.get("Link")
                 next_url = None
                 if link_header:
                     links = requests.utils.parse_header_links(link_header)
                     for link in links:
-                        if link.get('rel') == 'next':
-                            next_url = link.get('url')
+                        if link.get("rel") == "next":
+                            next_url = link.get("url")
                             LOG.debug(f"Found next page link: {next_url}")
                             break
                 current_url = next_url
@@ -132,7 +142,9 @@ class HarborImageListSource(source.BaseImageListSource):
                 status_code = e.response.status_code if e.response else 0
                 msg = f"Harbor API request failed for {self.name} accessing {current_url}: {e}"
                 LOG.error(msg)
-                self.error = exception.ImageListDownloadFailed(code=status_code, reason=msg)
+                self.error = exception.ImageListDownloadFailed(
+                    code=status_code, reason=msg
+                )
                 return None
 
         return results
@@ -144,10 +156,14 @@ class HarborImageListSource(source.BaseImageListSource):
         repositories = self._fetch_paginated_data(repos_url)
 
         if repositories is None:
-            LOG.error(f"Failed to list repositories for project {self.project}. See previous errors.")
+            LOG.error(
+                f"Failed to list repositories for project {self.project}. See previous errors."
+            )
             return None
         if not repositories:
-            LOG.warning(f"No repositories found in project '{self.project}' for source '{self.name}'.")
+            LOG.warning(
+                f"No repositories found in project '{self.project}' for source '{self.name}'."
+            )
             return []
 
         LOG.info(f"Found {len(repositories)} repositories in project '{self.project}'.")
@@ -156,7 +172,9 @@ class HarborImageListSource(source.BaseImageListSource):
     def _process_artifact(self, artifact, repo_name):
         """Processes a single artifact dictionary, checking tags and filters."""
         if not artifact.get("tags"):
-            LOG.debug(f"Artifact {artifact.get('digest')} in repo {repo_name} has no tags, skipping.")
+            LOG.debug(
+                f"Artifact {artifact.get('digest')} in repo {repo_name} has no tags, skipping."
+            )
             return
 
         processed_artifact_tags = set()
@@ -167,7 +185,10 @@ class HarborImageListSource(source.BaseImageListSource):
 
             process_this_tag = False
             if self.subscribed_images:
-                if tag_name in self.subscribed_images or artifact.get("digest") in self.subscribed_images:
+                if (
+                    tag_name in self.subscribed_images
+                    or artifact.get("digest") in self.subscribed_images
+                ):
                     process_this_tag = True
             elif self.tag_pattern_re:
                 if self.tag_pattern_re.match(tag_name):
@@ -185,36 +206,62 @@ class HarborImageListSource(source.BaseImageListSource):
                         annotations = artifact.get("annotations", {})
 
                     if not annotations:
-                        LOG.warning(f"No annotations found for {image_ref} in API list response.")
+                        LOG.warning(
+                            f"No annotations found for {image_ref} in API list response."
+                        )
 
-                    img = image.HarborImage(image_ref, self.registry_host, self.auth_user, self.auth_password, annotations, self.name, digest)
+                    img = image.HarborImage(
+                        image_ref,
+                        self.registry_host,
+                        self.auth_user,
+                        self.auth_password,
+                        annotations,
+                        self.name,
+                        digest,
+                    )
                     self.image_list.append(img)
                     processed_artifact_tags.add(tag_name)
                     LOG.debug(f"Added Harbor image from API: {image_ref}")
 
                 except Exception as e:
-                    LOG.error(f"Failed to process artifact tag {repo_name}:{tag_name}: {e}", exc_info=True)
+                    LOG.error(
+                        f"Failed to process artifact tag {repo_name}:{tag_name}: {e}",
+                        exc_info=True,
+                    )
 
     def _process_repository(self, repo_info):
         """Fetches and processes artifacts for a given repository."""
         repo_name = repo_info.get("name")
-        if '/' in repo_name:
-            repo_name_only = repo_name.split('/', 1)[1]
+        if "/" in repo_name:
+            repo_name_only = repo_name.split("/", 1)[1]
         else:
             repo_name_only = repo_name
 
         if not repo_name_only:
-            LOG.warning(f"Could not extract repository name from '{repo_name}', skipping.")
+            LOG.warning(
+                f"Could not extract repository name from '{repo_name}', skipping."
+            )
             return
 
         encoded_repo_name = quote_plus(repo_name_only)
         artifacts_url = f"{self.api_url}/projects/{self.project}/repositories/{encoded_repo_name}/artifacts"
-        LOG.debug(f"Listing artifacts for repository '{repo_name}' from {artifacts_url}")
+        LOG.debug(
+            f"Listing artifacts for repository '{repo_name}' from {artifacts_url}"
+        )
 
-        artifacts = self._fetch_paginated_data(artifacts_url, params={'with_tag': 'true', 'with_scan_overview': 'false', 'with_label': 'false'})
+        artifacts = self._fetch_paginated_data(
+            artifacts_url,
+            params={
+                "with_tag": "true",
+                "with_scan_overview": "false",
+                "with_label": "false",
+            },
+        )
 
         if artifacts is None:
-            LOG.error(f"Failed to list artifacts for repository '{repo_name}'. Skipping this repository.")
+            LOG.error(
+                f"Failed to list artifacts for repository '{repo_name}'. Skipping this repository."
+            )
             return
 
         if not artifacts:
@@ -228,10 +275,14 @@ class HarborImageListSource(source.BaseImageListSource):
     @_set_error
     def fetch(self):
         if not self.enabled or not self.api_url or not self.project:
-            LOG.info(f"Harbor source '{self.name}' disabled or config incomplete, skipping fetch.")
+            LOG.info(
+                f"Harbor source '{self.name}' disabled or config incomplete, skipping fetch."
+            )
             return
 
-        LOG.info(f"Fetching images via Harbor API for project: {self.name} ({self.project})")
+        LOG.info(
+            f"Fetching images via Harbor API for project: {self.name} ({self.project})"
+        )
         self.image_list = []
         self.error = None
 
@@ -242,7 +293,9 @@ class HarborImageListSource(source.BaseImageListSource):
         for repo_info in repositories:
             self._process_repository(repo_info)
 
-        LOG.info(f"Finished fetching Harbor source '{self.name}'. Found {len(self.image_list)} matching images across all repositories in project '{self.project}'.")
+        LOG.info(
+            f"Finished fetching Harbor source '{self.name}'. Found {len(self.image_list)} matching images across all repositories in project '{self.project}'."
+        )
 
     def print_list(self, contents=False):
         d = {
@@ -264,7 +317,9 @@ class HarborImageListSource(source.BaseImageListSource):
 
         d["images found"] = images if images else "None"
 
-        subscribed_cfg = self.subscribed_images if self.subscribed_images else "All (or by pattern)"
+        subscribed_cfg = (
+            self.subscribed_images if self.subscribed_images else "All (or by pattern)"
+        )
         d["images (subscribed config)"] = subscribed_cfg
         if self.tag_pattern_re:
             d["tag_pattern"] = self.tag_pattern_re.pattern
@@ -288,7 +343,7 @@ class HarborImageListSource(source.BaseImageListSource):
                 for img in self.image_list
                 if img.identifier in self.subscribed_images
             ]
-    
+
     def get_valid_subscribed_images(self):
         return [i for i in self.get_subscribed_images() if i.verified and not i.expired]
 

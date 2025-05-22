@@ -22,8 +22,8 @@ from oslo_config import cfg
 from oslo_log import log
 
 import atrope.dispatcher.manager
-import atrope.image_list.hepix
 import atrope.image_list.harbor
+import atrope.image_list.hepix
 from atrope import cache, exception
 
 CONF = cfg.CONF
@@ -135,7 +135,7 @@ class YamlImageListManager(BaseImageListManager):
                     prefix=list_meta.pop("prefix", ""),
                     project=list_meta.pop("project", ""),
                     file_path=list_meta.pop("file_path", None),
-                    **list_meta
+                    **list_meta,
                 )
                 self.lists[name] = lst
             elif source_type == "harbor":
@@ -154,9 +154,12 @@ class YamlImageListManager(BaseImageListManager):
                         auth_token=list_meta.pop("auth_token", None),
                         verify_ssl=list_meta.pop("verify_ssl", True),
                         page_size=list_meta.pop("page_size", 50),
-                        **list_meta
+                        **list_meta,
                     )
                     self.add_image_list_source(lst)
                     LOG.debug(f"Loaded Harbor source: {name}")
                 except Exception as e:
-                    LOG.error(f"Failed to initialize Harbor source '{name}': {e}", exc_info=True)
+                    LOG.error(
+                        f"Failed to initialize Harbor source '{name}': {e}",
+                        exc_info=True,
+                    )

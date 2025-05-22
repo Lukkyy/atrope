@@ -82,7 +82,9 @@ class DispatcherManager(object):
 
         is_public = False if image_list.token else True
 
-        if image_list.image_list is not None and not isinstance(image_list.image_list, list): # TODO(lukas-moder): Refactor this
+        if image_list.image_list is not None and not isinstance(
+            image_list.image_list, list
+        ):  # TODO(lukas-moder): Refactor this
             if image_list.image_list.vo is not None:
                 kwargs["vo"] = image_list.image_list.vo
 
