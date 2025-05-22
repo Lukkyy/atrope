@@ -19,9 +19,7 @@ import pathlib
 from oslo_config import cfg
 from oslo_log import log
 
-from atrope import exception
-from atrope import paths
-from atrope import utils
+from atrope import exception, paths, utils
 
 opts = [
     cfg.StrOpt(

@@ -14,11 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from oslo_config import cfg
+
+from atrope import utils
 from atrope.cmd import base
 from atrope.image_list import manager
-from atrope import utils
-
-from oslo_config import cfg
 
 CONF = cfg.CONF
 

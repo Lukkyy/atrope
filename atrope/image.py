@@ -22,16 +22,13 @@ import tempfile
 
 import dateutil.parser
 import dateutil.tz
-from oslo_config import cfg
-from oslo_log import log
 import requests
 import requests.certs
 import six
+from oslo_config import cfg
+from oslo_log import log
 
-from atrope import exception
-from atrope import ovf
-from atrope import paths
-from atrope import utils
+from atrope import exception, ovf, paths, utils
 
 opts = [
     cfg.StrOpt(

@@ -20,16 +20,12 @@ import pprint
 
 import dateutil.parser
 import dateutil.tz
+import requests
 from oslo_config import cfg
 from oslo_log import log
-import requests
 
-from atrope import endorser
-from atrope import exception
-from atrope import image
+from atrope import endorser, exception, image, smime, utils
 from atrope.image_list import source
-from atrope import smime
-from atrope import utils
 
 opts = [
     cfg.StrOpt(
@@ -43,6 +39,17 @@ CONF = cfg.CONF
 CONF.register_opts(opts, group="sources")
 
 LOG = log.getLogger(__name__)
+
+
+def _set_error(func):
+    def decorated(self):
+        try:
+            func(self)
+        except Exception as e:
+            self.error = e
+            raise
+
+    return decorated
 
 
 class HepixImageList(object):
@@ -129,16 +136,6 @@ class HepixImageListSource(source.BaseImageListSource):
         self.error = None
 
         self.contents = None
-
-    def _set_error(func):
-        def decorated(self):
-            try:
-                func(self)
-            except Exception as e:
-                self.error = e
-                raise
-
-        return decorated
 
     @_set_error
     def fetch(self):

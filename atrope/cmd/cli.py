@@ -17,8 +17,8 @@ import sys
 from oslo_config import cfg
 from oslo_log import log
 
-from atrope.cmd import commands
 import atrope.config
+from atrope.cmd import commands
 
 CONF = cfg.CONF
 

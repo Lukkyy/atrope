@@ -13,10 +13,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from six.moves.urllib import parse
 import tarfile
 
 from lxml import etree
+from six.moves.urllib import parse
 
 from atrope import exception
 
