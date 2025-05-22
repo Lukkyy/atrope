@@ -12,7 +12,7 @@ vo.fedcloud.egi.eu:
     endorser:
         dn: '/DC=EU/DC=EGI/C=NL/O=Hosts/O=EGI.eu/CN=appdb.egi.eu'
         ca: "/DC=ORG/DC=SEE-GRID/CN=SEE-GRID CA 2013"
-    token: 17580f07-1e33-4a38-94e3-3386daced5be
+    token:
     images:
         - 662b0e71-3e21-5f43-b6a1-cc2f51319fa7
     prefix: "FEDCLOUD "

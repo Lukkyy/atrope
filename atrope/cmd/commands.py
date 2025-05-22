@@ -18,12 +18,11 @@ from __future__ import print_function
 
 import sys
 
-from atrope import exception
-from atrope.cmd import image_list
-from atrope.cmd import version
-
 from oslo_config import cfg
 from oslo_log import log
+
+from atrope import exception
+from atrope.cmd import image_list, version
 
 CONF = cfg.CONF
 

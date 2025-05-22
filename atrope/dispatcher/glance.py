@@ -21,8 +21,8 @@ from keystoneclient.v3 import client as ks_client_v3
 from oslo_config import cfg
 from oslo_log import log
 
-from atrope.dispatcher import base
 from atrope import exception
+from atrope.dispatcher import base
 
 CONF = cfg.CONF
 CFG_GROUP = "glance"

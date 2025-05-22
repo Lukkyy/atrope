@@ -15,8 +15,7 @@
 from oslo_config import cfg
 from oslo_log import log
 
-from atrope import exception
-from atrope import importutils
+from atrope import exception, importutils
 
 opts = [
     cfg.MultiStrOpt(

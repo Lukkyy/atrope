@@ -16,16 +16,15 @@
 
 import abc
 
-from oslo_config import cfg
-from oslo_log import log
 import six
 import yaml
+from oslo_config import cfg
+from oslo_log import log
 
-from atrope import cache
 import atrope.dispatcher.manager
-from atrope import exception
 import atrope.image_list.hepix
 import atrope.image_list.harbor
+from atrope import cache, exception
 
 CONF = cfg.CONF
 CONF.import_opt("hepix_sources", "atrope.image_list.hepix", group="sources")
