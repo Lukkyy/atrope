@@ -2,8 +2,6 @@
 
 # (Include Apache License Header Here)
 
-import json
-import pprint
 import re
 from urllib.parse import quote_plus
 

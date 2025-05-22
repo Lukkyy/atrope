@@ -356,7 +356,7 @@ class HarborImage(BaseImage):
                 auth_backend="basic",
             )
             registry.login(username=self.registry_username, password=self.registry_pwd)
-            result_pull = registry.pull(target=self.image_ref, outdir=location)
+            registry.pull(target=self.image_ref, outdir=location)
         except FileNotFoundError:
             raise exception.AtropeException(
                 message="oras command not found. Please ensure oras CLI is installed and in PATH."

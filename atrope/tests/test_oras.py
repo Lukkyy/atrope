@@ -5,7 +5,6 @@
 # print(result_login)
 # result_pull = registry.pull(target="myproject/oci-alpine:v1")
 # print(result_pull)
-import docker
 import oras.provider
 from oras.logger import logger, setup_logger
 
