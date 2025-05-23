@@ -23,6 +23,16 @@ from atrope import exception
 
 LOG = log.getLogger(__name__)
 
+def _set_error(func):
+    def decorated(self):
+        try:
+            func(self)
+        except Exception as e:
+            self.error = e
+            raise
+
+    return decorated
+
 
 @six.add_metaclass(abc.ABCMeta)
 class BaseImageListSource(object):
@@ -43,6 +53,7 @@ class BaseImageListSource(object):
         self.enabled = enabled
         self.prefix = prefix
         self.subscribed_images = subscribed_images
+        self.error = None
 
         self.project = project
 

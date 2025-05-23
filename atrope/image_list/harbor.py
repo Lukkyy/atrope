@@ -37,7 +37,7 @@ class HarborImageListSource(source.BaseImageListSource):
         page_size=50,
         **kwargs,
     ):
-        super(HarborImageListSource, self).__init__(
+        super().__init__(
             name,
             url=f"{api_url}/projects/{project}/repositories",
             enabled=enabled,
@@ -55,7 +55,6 @@ class HarborImageListSource(source.BaseImageListSource):
         self.verify_ssl = verify_ssl
         self.page_size = page_size
         self.image_list = []
-        self.error = None
         self._session = None
         self.endorser = kwargs.get("endorser", {})
         self.token = kwargs.get("token", "")
@@ -87,18 +86,6 @@ class HarborImageListSource(source.BaseImageListSource):
                 )
 
         return self._session
-
-    def _set_error(func):
-        def decorated(self):
-            try:
-                func(self)
-            except Exception as e:
-                self.error = e
-                LOG.error(
-                    f"Failed to fetch Harbor list '{self.name}': {e}", exc_info=True
-                )
-
-        return decorated
 
     def _fetch_paginated_data(self, url, params=None):
         """Helper to fetch data from a paginated Harbor API endpoint."""
@@ -270,7 +257,7 @@ class HarborImageListSource(source.BaseImageListSource):
         for artifact in artifacts:
             self._process_artifact(artifact, repo_name)
 
-    @_set_error
+    @source._set_error
     def fetch(self):
         if not self.enabled or not self.api_url or not self.project:
             LOG.info(

@@ -41,17 +41,6 @@ CONF.register_opts(opts, group="sources")
 LOG = log.getLogger(__name__)
 
 
-def _set_error(func):
-    def decorated(self):
-        try:
-            func(self)
-        except Exception as e:
-            self.error = e
-            raise
-
-    return decorated
-
-
 class HepixImageList(object):
     """A Hepix Image List.
 
@@ -115,7 +104,7 @@ class HepixImageListSource(source.BaseImageListSource):
         file_path=None,
         **kwargs
     ):
-        super(HepixImageListSource, self).__init__(
+        super().__init__(
             name,
             url=url,
             enabled=enabled,
@@ -134,13 +123,12 @@ class HepixImageListSource(source.BaseImageListSource):
         self.verified = False
         self.trusted = False
         self.expired = None
-        self.error = None
 
         self.contents = None
 
         self.file_path = file_path
 
-    @_set_error
+    @source._set_error
     def fetch(self):
         if self.enabled and (self.url or self.file_path):
             self.contents = self._fetch()
