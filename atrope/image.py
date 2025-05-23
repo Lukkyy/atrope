@@ -418,7 +418,7 @@ class HarborImage(BaseImage):
                 ),
             )
             pulled_image_path = os.path.join(tmpdir, image_filename)
-            if not image_filename or not os.path.isfile(pulled_image_path)):
+            if not image_filename or not os.path.isfile(pulled_image_path):
                 raise exception.ImageDownloadFailed(
                     code=1,
                     reason=f"Could not identify main image file in oras pull output for {self.identifier} in {tmpdir}",
