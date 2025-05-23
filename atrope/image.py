@@ -288,7 +288,7 @@ class HepixImage(BaseImage):
 
 
 class HarborImage(BaseImage):
-    """Represents an image fetched via Harbor API, downloaded via oras."""
+    """Represents an image discovered via Harbor API, downloaded via oras."""
 
     def __init__(
         self,
