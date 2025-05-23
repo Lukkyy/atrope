@@ -316,7 +316,7 @@ class HarborImage(BaseImage):
         self.registry_pwd = password
         self.list_name = list_name
         self.annotations = annotations if annotations else {}
-        self.digest = digest  # SHA256 identifier of the image
+        self.digest = digest
 
         self.identifier = f"{registry_host}/{image_ref}-{digest}"
 
