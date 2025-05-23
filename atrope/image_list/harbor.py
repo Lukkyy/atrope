@@ -272,7 +272,7 @@ class HarborImageListSource(source.BaseImageListSource):
         self.error = None
 
         repositories = self._list_repositories_in_project()
-        if repositories is None or not repositories:
+        if not repositories:
             return
 
         for repo_info in repositories:

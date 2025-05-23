@@ -17,6 +17,7 @@
 import abc
 import datetime
 import os.path
+import shutil
 import subprocess
 import tempfile
 
@@ -308,7 +309,7 @@ class HarborImage(BaseImage):
         :param list_name: Name of the source list this image belongs to.
         :param digest: SHA256 identifier of the image.
         """
-        super(HarborImage, self).__init__(annotations)
+        super().__init__(annotations)
 
         self.image_ref = image_ref
         self.registry_host = registry_host
@@ -334,7 +335,6 @@ class HarborImage(BaseImage):
         self.uri = image_ref
         self.location = None
         self.locations = []
-        self.verified = True
         self.expired = False
 
         # For glance dispatcher TODO(lukas-moder): Clean up the attributes of HarborImage
@@ -344,7 +344,7 @@ class HarborImage(BaseImage):
         self.osversion = "3.21.3"
         self.description = "Test description for Demo"
         self.mpuri = self.uri
-        LOG.debug(f"HarborImage initialized: {self.identifier}, format={self.format}")
+        LOG.debug(f"HarborImage initialized: {self.identifier}")
 
     def _run_oras_pull(self, location: str):
         """Helper specifically for running oras pull command."""
@@ -417,15 +417,12 @@ class HarborImage(BaseImage):
                     else -1
                 ),
             )
-            if not image_filename or not os.path.isfile(
-                os.path.join(tmpdir, image_filename)
-            ):
+            pulled_image_path = os.path.join(tmpdir, image_filename)
+            if not image_filename or not os.path.isfile(pulled_image_path)):
                 raise exception.ImageDownloadFailed(
                     code=1,
                     reason=f"Could not identify main image file in oras pull output for {self.identifier} in {tmpdir}",
                 )
-
-            pulled_image_path = os.path.join(tmpdir, image_filename)
             LOG.debug(f"Identified pulled image file: {pulled_image_path}")
 
             safe_filename = "".join(
@@ -436,7 +433,13 @@ class HarborImage(BaseImage):
             utils.makedirs(basedir)
 
             try:
-                os.rename(pulled_image_path, final_location)
+                self.verify_checksum(pulled_image_path)
+            except exception.ImageVerificationFailed as e:
+                LOG.error(f"Immediate verification failed for {self.identifier}: {e}")
+                raise
+
+            try:
+                shutil.move(pulled_image_path, final_location)
                 self.location = final_location
                 self.locations = [final_location]
                 LOG.info(f"Stored Harbor image {self.identifier} at {self.location}")
@@ -445,37 +448,10 @@ class HarborImage(BaseImage):
                     f"Failed to move downloaded file to cache for {self.identifier}: {e}"
                 )
 
-        try:
-            checksum_obj = utils.get_file_checksum(self.location)
-            self.sha512 = checksum_obj.hexdigest()
-            LOG.info(f"Calculated SHA512 for {self.identifier}: {self.sha512}")
-            self.verify_checksum()
-        except FileNotFoundError:
-            raise exception.ImageNotFoundOnDisk(location=self.location)
-        except exception.ImageVerificationFailed as e:
-            LOG.error(f"Immediate verification failed for {self.identifier}: {e}")
-            utils.rm(self.location)  # Clean up failed download
-            self.location = None
-            self.locations = []
-            self.verified = False
-            self.sha512 = None
-            raise
-        except Exception as e:
-            LOG.error(
-                f"Failed to calculate or verify checksum for {self.identifier}: {e}"
-            )
-            utils.rm(self.location)  # Clean up failed download
-            self.location = None
-            self.locations = []
-            self.verified = False
-            self.sha512 = None
-            raise exception.ImageVerificationFailed(
-                id=self.identifier,
-                expected="N/A",
-                obtained=f"Error during checksum: {e}",
-            )
-
     def verify_checksum(self, location=None):
         """Verify the image's calculated SHA512 checksum."""
-        # TODO check Harbor digest and verify based on it
-        pass
+        # TODO get checksum from Harbor digest and verify based on it
+        LOG.warning("FIXME: Checksum should be fetched from Harbor!")
+        checksum_obj = utils.get_file_checksum(self.location)
+        self.sha512 = checksum_obj.hexdigest()
+        super().verify_checksum(location)

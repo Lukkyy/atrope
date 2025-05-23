@@ -1,6 +1,6 @@
 ttycorelinux egi:
     url: https://vmcaster.appdb.egi.eu/store/vappliance/tinycorelinux/image.list
-    enabled: false
+    enabled: true
     endorser:
         dn: '/DC=EU/DC=EGI/C=NL/O=Hosts/O=EGI.eu/CN=appdb.egi.eu'
         ca: "/DC=ORG/DC=SEE-GRID/CN=SEE-GRID CA 2013"
@@ -8,7 +8,7 @@ ttycorelinux egi:
 
 vo.fedcloud.egi.eu:
     url: https://vmcaster.appdb.egi.eu/store/vo/fedcloud.egi.eu/image.list
-    enabled: false
+    enabled: true 
     endorser:
         dn: '/DC=EU/DC=EGI/C=NL/O=Hosts/O=EGI.eu/CN=appdb.egi.eu'
         ca: "/DC=ORG/DC=SEE-GRID/CN=SEE-GRID CA 2013"
@@ -17,14 +17,6 @@ vo.fedcloud.egi.eu:
         - 662b0e71-3e21-5f43-b6a1-cc2f51319fa7
     prefix: "FEDCLOUD "
     project: bb02bda767b4490a82b2f62f9347a0f5
-
-local_list:
-    enabled: false
-    file_path: /home/user/Downloads/image.list.txt  # Path to the MIME file
-    endorser:
-        dn: '/DC=EU/DC=EGI/C=NL/O=Hosts/O=EGI.eu/CN=appdb.egi.eu'
-        ca: "/DC=ORG/DC=SEE-GRID/CN=SEE-GRID CA 2013"
-    images: []
 
 harbor:
     enabled: true
@@ -39,6 +31,9 @@ harbor:
     verify_ssl: false
     page_size: 30
     endorser:
+
+foo:
+    enabled: false
 
 bar:
     enabled: false
