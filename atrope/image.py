@@ -58,7 +58,7 @@ class BaseImage(object):
     @abc.abstractmethod
     def __init__(self, image_info):
         self.uri = None
-        self.sha512 = None
+        self.hash = None
         self.identifier = None
         self.location = None
         self.locations = []
@@ -66,11 +66,46 @@ class BaseImage(object):
         self.expired = False
 
     @abc.abstractmethod
-    def download(self, dest):
-        """Download the image.
+    def download_and_verify(location):
+        """Do the actual download of the image and verify it.
 
+        :param location:
+        """
+        pass
+
+    def download(self, dest):
+        """Download the image
         :param dest: destionation directory.
         """
+        if self.expired:
+            raise exception.ImageExpired(reason=self.expires)
+
+        # The image has been already downloaded in this execution.
+        if self.location is not None:
+            raise exception.ImageAlreadyDownloaded(location=self.location)
+
+        safe_filename = "".join(
+            c if c.isalnum() or c in ("-", "_", ".") else "_"
+            for c in self.identifier.replace("/", "_").replace(":", "_")
+        )
+        location = os.path.join(dest, safe_filename)
+
+        if not os.path.exists(location):
+            self.download_and_verify(location)
+        else:
+            # Image exists, is it checksum valid?
+            try:
+                self.verify_checksum(location=location)
+            except exception.ImageVerificationFailed:
+                LOG.warning(
+                    "Image '%s' present in '%s' is not valid, " "downloading again",
+                    self.identifier,
+                    location,
+                )
+                self.download_and_verify(location)
+
+        self.location = location
+        self.locations = [location]
 
     def get_file(self, mode="rb"):
         """Return a File object containing the downloaded file."""
@@ -113,10 +148,11 @@ class BaseImage(object):
         if location is None:
             raise exception.ImageNotFoundOnDisk(location=location)
 
-        sha512 = utils.get_file_checksum(location)
-        if sha512.hexdigest() != self.sha512:
+        alg, hash_value = self.hash.split(":")
+        file_hash = utils.get_file_checksum(location, alg)
+        if file_hash.hexdigest() != hash_value:
             raise exception.ImageVerificationFailed(
-                id=self.identifier, expected=self.sha512, obtained=sha512.hexdigest()
+                id=self.identifier, expected=hash_value, obtained=file_hash.hexdigest()
             )
         LOG.info("Image '%s' present in '%s', checksum OK", self.identifier, location)
         self.verified = True
@@ -182,7 +218,6 @@ class HepixImage(BaseImage):
         "hv:uri": "uri",
         "hv:version": "version",
         "sl:arch": "arch",
-        "sl:checksum:sha512": "sha512",
         "sl:comments": "comments",
         "sl:os": "os",
         "sl:osname": "osname",
@@ -207,8 +242,14 @@ class HepixImage(BaseImage):
 
             attr = self.field_map.get(i)
             setattr(self, attr, value)
-        # add everything from hepix as 'extra', so it can be queried in glance
+        # Encoding the sha alg and the value together
+        sha512 = image_dict.get("sl:checksum:sha512")
+        if sha512:
+            self.hash = f"sha512:{sha512}"
+        else:
+            raise exception.InvalidImageList(reason="Missing sha512 value")
         self.appliance_attributes = image_dict
+        # add everything from hepix as 'extra', so it can be queried in glance
         # set year 2K as the past
         self.expires = dateutil.parser.parse(
             image_dict.get("dc:date:expires", "2000-01-01 00:00")
@@ -222,7 +263,7 @@ class HepixImage(BaseImage):
             return True
         return False
 
-    def _download(self, location):
+    def download_and_verify(self, location):
         LOG.info(
             "Downloading image '%s' from '%s' into '%s'",
             self.identifier,
@@ -260,36 +301,18 @@ class HepixImage(BaseImage):
         else:
             LOG.info("Image '%s' stored as '%s'", self.identifier, location)
 
-    def download(self, basedir):
-        if self.expired:
-            raise exception.ImageExpired(reason=self.expires)
-
-        # The image has been already downloaded in this execution.
-        if self.location is not None:
-            raise exception.ImageAlreadyDownloaded(location=self.location)
-
-        location = os.path.join(basedir, self.identifier)
-
-        if not os.path.exists(location):
-            self._download(location)
-        else:
-            # Image exists, is it checksum valid?
-            try:
-                self.verify_checksum(location=location)
-            except exception.ImageVerificationFailed:
-                LOG.warning(
-                    "Image '%s' present in '%s' is not valid, " "downloading again",
-                    self.identifier,
-                    location,
-                )
-                self._download(location)
-
-        self.location = location
-        self.locations = [location]
-
 
 class HarborImage(BaseImage):
     """Represents an image discovered via Harbor API, downloaded via oras."""
+
+    annotations_map = {
+        "eu.egi.cloud.description": "description",
+        "org.openstack.glance.architecture": "arch",
+        "org.openstack.glance.os_distro": "osname",
+        "org.openstack.glance.os_version": "osversion",
+        "org.opencontainers.image.revision": "revision",
+        "org.opencontainers.image.source": "source_url",
+    }
 
     def __init__(
         self,
@@ -300,6 +323,7 @@ class HarborImage(BaseImage):
         annotations,
         list_name,
         digest,
+        image_digest,
     ):
         """
         Initialize HarborImage.
@@ -308,6 +332,7 @@ class HarborImage(BaseImage):
         :param annotations: Parsed OCI annotations dictionary from API response.
         :param list_name: Name of the source list this image belongs to.
         :param digest: SHA256 identifier of the image.
+        :param image_digest: Digest of the image.
         """
         super().__init__(annotations)
 
@@ -318,6 +343,7 @@ class HarborImage(BaseImage):
         self.list_name = list_name
         self.annotations = annotations if annotations else {}
         self.digest = digest
+        self.hash = image_digest
 
         self.identifier = f"{registry_host}/{image_ref}-{digest}"
 
@@ -326,24 +352,22 @@ class HarborImage(BaseImage):
             "org.openstack.glance.container_format", "bare"
         )
 
-        self.sha512 = None
+        self.title = image_ref
+        self.mpuri = self.uri
 
-        self.revision = self.annotations.get("org.opencontainers.image.revision")
-        self.source_url = self.annotations.get("org.opencontainers.image.source")
         self.appliance_attributes = self.annotations
+
+        for src, dst in self.annotations_map.items():
+            value = self.annotations.get(src, None)
+            if value:
+                setattr(self, dst, value)
 
         self.uri = image_ref
         self.location = None
         self.locations = []
+        # Harbor images do not expire
         self.expired = False
 
-        # For glance dispatcher TODO(lukas-moder): Clean up the attributes of HarborImage
-        self.title = image_ref
-        self.arch = "x86_64"  # TODO(lukas-moder): Where to get this in Harbor
-        self.osname = "Alpine"
-        self.osversion = "3.21.3"
-        self.description = "Test description for Demo"
-        self.mpuri = self.uri
         LOG.debug(f"HarborImage initialized: {self.identifier}")
 
     def _run_oras_pull(self, location: str):
@@ -371,28 +395,8 @@ class HarborImage(BaseImage):
                 message=f"An unexpected error occurred running oras pull for {self.image_ref}: {e}"
             )
 
-    def download(self, basedir):
+    def download_and_verify(self, location):
         """Download the image using oras pull."""
-        if self.expired:
-            raise exception.ImageExpired(reason="Image marked as expired")
-
-        if self.location and os.path.exists(self.location):
-            try:
-                self.verify_checksum()
-                LOG.info(
-                    f"Image {self.identifier} already downloaded and verified at {self.location}"
-                )
-                raise exception.ImageAlreadyDownloaded(location=self.location)
-            except exception.ImageVerificationFailed:
-                LOG.warning(
-                    f"Cached image {self.identifier} failed verification. Re-downloading."
-                )
-                utils.rm(self.location)
-                self.location = None
-                self.locations = []
-                self.verified = False
-                self.sha512 = None
-
         with tempfile.TemporaryDirectory(suffix=f"-{self.list_name}") as tmpdir:
             LOG.info(
                 f"Downloading Harbor image {self.identifier} ({self.image_ref}) using oras to {tmpdir}"
@@ -425,13 +429,6 @@ class HarborImage(BaseImage):
                 )
             LOG.debug(f"Identified pulled image file: {pulled_image_path}")
 
-            safe_filename = "".join(
-                c if c.isalnum() or c in ("-", "_", ".") else "_"
-                for c in self.identifier.replace("/", "_").replace(":", "_")
-            )
-            final_location = os.path.join(basedir, safe_filename)
-            utils.makedirs(basedir)
-
             try:
                 self.verify_checksum(pulled_image_path)
             except exception.ImageVerificationFailed as e:
@@ -439,19 +436,9 @@ class HarborImage(BaseImage):
                 raise
 
             try:
-                shutil.move(pulled_image_path, final_location)
-                self.location = final_location
-                self.locations = [final_location]
-                LOG.info(f"Stored Harbor image {self.identifier} at {self.location}")
+                shutil.move(pulled_image_path, location)
+                LOG.info(f"Stored Harbor image {self.identifier} at {location}")
             except OSError as e:
                 raise exception.AtropeException(
                     f"Failed to move downloaded file to cache for {self.identifier}: {e}"
                 )
-
-    def verify_checksum(self, location=None):
-        """Verify the image's calculated SHA512 checksum."""
-        # TODO get checksum from Harbor digest and verify based on it
-        LOG.warning("FIXME: Checksum should be fetched from Harbor!")
-        checksum_obj = utils.get_file_checksum(self.location)
-        self.sha512 = checksum_obj.hexdigest()
-        super().verify_checksum(location)

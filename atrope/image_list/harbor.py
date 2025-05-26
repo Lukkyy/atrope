@@ -3,9 +3,11 @@
 # (Include Apache License Header Here)
 
 import re
+import subprocess
 from urllib.parse import quote_plus
 
 import requests
+import oras.provider
 from oslo_config import cfg
 from oslo_log import log
 
@@ -56,6 +58,7 @@ class HarborImageListSource(source.BaseImageListSource):
         self.page_size = page_size
         self.image_list = []
         self._session = None
+        self._oras_registry = None
         self.endorser = kwargs.get("endorser", {})
         self.token = kwargs.get("token", "")
 
@@ -86,6 +89,31 @@ class HarborImageListSource(source.BaseImageListSource):
                 )
 
         return self._session
+
+    def _get_oras_registry(self):
+        if self._oras_registry is None:
+            try:
+                self._oras_registry = oras.provider.Registry(
+                    self.registry_host,
+                    auth_backend="basic",
+                )
+                self._oras_registry.login(
+                    username=self.auth_user, password=self.auth_password
+                )
+            except FileNotFoundError:
+                raise exception.AtropeException(
+                    message="oras command not found. Please ensure oras CLI is installed and in PATH."
+                )
+            except subprocess.CalledProcessError as e:
+                raise exception.AtropeException(
+                    message=f"oras login failed: {e.stderr}",
+                )
+        return self._oras_registry
+
+    def get_manifest(self, image_ref):
+        """Helper specifically for running oras pull command."""
+        registry = self._get_oras_registry()
+        return registry.get_manifest(image_ref)
 
     def _fetch_paginated_data(self, url, params=None):
         """Helper to fetch data from a paginated Harbor API endpoint."""
@@ -184,8 +212,14 @@ class HarborImageListSource(source.BaseImageListSource):
             if process_this_tag:
                 try:
                     image_ref = f"{repo_name}:{tag_name}"
-                    print(repo_name)
                     annotations = artifact.get("extra_attrs", {}).get("annotations", {})
+                    # update annotations with the ones in the manifest
+                    manifest = self.get_manifest(image_ref)
+                    # we are assuming here a single annotation, this may not be true
+                    annotations.update(
+                        manifest.get("layers", [{}])[0].get("annotations", {})
+                    )
+                    image_digest = manifest.get("layers", [{}])[0].get("digest")
                     digest = artifact.get("digest", "")
                     if not annotations and "annotations" in artifact:
                         annotations = artifact.get("annotations", {})
@@ -203,6 +237,7 @@ class HarborImageListSource(source.BaseImageListSource):
                         annotations,
                         self.name,
                         digest,
+                        image_digest,
                     )
                     self.image_list.append(img)
                     processed_artifact_tags.add(tag_name)
@@ -240,6 +275,7 @@ class HarborImageListSource(source.BaseImageListSource):
                 "with_tag": "true",
                 "with_scan_overview": "false",
                 "with_label": "false",
+                "with_accessory": "true",
             },
         )
 
@@ -279,7 +315,8 @@ class HarborImageListSource(source.BaseImageListSource):
             self._process_repository(repo_info)
 
         LOG.info(
-            f"Finished fetching Harbor source '{self.name}'. Found {len(self.image_list)} matching images across all repositories in project '{self.project}'."
+            f"Finished fetching Harbor source '{self.name}'. Found {len(self.image_list)} "
+            f"matching images across all repositories in project '{self.project}'."
         )
 
     def print_list(self, contents=False):
