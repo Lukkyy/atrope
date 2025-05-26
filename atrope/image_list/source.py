@@ -23,6 +23,7 @@ from atrope import exception
 
 LOG = log.getLogger(__name__)
 
+
 def _set_error(func):
     def decorated(self):
         try:
