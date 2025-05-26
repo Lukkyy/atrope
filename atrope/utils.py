@@ -103,16 +103,16 @@ def makedirs(path):
             raise
 
 
-def get_file_checksum(path):
-    sha512 = hashlib.sha512()
-    block_size = sha512.block_size
+def get_file_checksum(path, algorithm="sha512"):
+    hash = hashlib.new(algorithm)
+    block_size = hash.block_size
 
     with open(path, "rb") as f:
         buf = f.read(block_size)
         while len(buf) > 0:
-            sha512.update(buf)
+            hash.update(buf)
             buf = f.read(block_size)
-    return sha512
+    return hash
 
 
 def yn_question(msg="Enabled", default=True):
