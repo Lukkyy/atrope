@@ -6,8 +6,8 @@ import re
 import subprocess
 from urllib.parse import quote_plus
 
-import requests
 import oras.provider
+import requests
 from oslo_config import cfg
 from oslo_log import log
 
