@@ -354,7 +354,7 @@ class HarborImage(BaseImage):
 
         self.title = image_ref
         self.uri = image_ref
-        self.mpuri = self.uri
+        self.mpuri = self.identifier
 
         self.appliance_attributes = self.annotations
 

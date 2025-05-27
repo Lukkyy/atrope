@@ -68,12 +68,12 @@ class Dispatcher(base.BaseDispatcher):
 
         - all images will be tagged with the tag set in the configuration ("atrope").
         - the following properties will be set:
-            - "egi_image_hash": will contain the checksum for the image.
-            - "egi_vmcatcher_event_dc_description": will contain the appdb
+            - "image_hash": will contain the checksum for the image.
+            - "vmcatcher_event_dc_description": will contain the appdb
               description
-            - "egi_vmcatcher_event_ad_mpuri": will contain the marketplate uri
-            - "egi_appdb_id": will contain the AppDB UUID
-            - "egi_appliance_attributes": will contain the original data from
+            - "vmcatcher_event_ad_mpuri": will contain the marketplate uri
+            - "appdb_id": will contain the AppDB UUID
+            - "appliance_attributes": will contain the original data from
                the Hepix description as json if available
 
     Moreover, some glance property keys will be set:
@@ -145,15 +145,15 @@ class Dispatcher(base.BaseDispatcher):
             "os_version": image.osversion,
             "visibility": "public" if is_public else "private",
             # AppDB properties
-            "egi_vmcatcher_event_dc_description": image.description,
-            "egi_vmcatcher_event_ad_mpuri": image.mpuri,
-            "egi_appdb_id": image.identifier,
-            "egi_image_hash": image.hash,
+            "vmcatcher_event_dc_description": image.description,
+            "vmcatcher_event_ad_mpuri": image.mpuri,
+            "appdb_id": image.identifier,
+            "image_hash": image.hash,
         }
 
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
-            metadata["egi_appliance_attributes"] = json.dumps(appliance_attrs)
+            metadata["appliance_attributes"] = json.dumps(appliance_attrs)
 
         # project = kwargs.pop("project")
         vos = kwargs.pop("vos")
@@ -166,7 +166,7 @@ class Dispatcher(base.BaseDispatcher):
         kwargs = {
             "filters": {
                 "tag": [CONF.glance.tag],
-                "egi_appdb_id": image.identifier,
+                "appdb_id": image.identifier,
             }
         }
         # TODO(aloga): what if we have several images here?
@@ -185,7 +185,7 @@ class Dispatcher(base.BaseDispatcher):
         except IndexError:
             glance_image = None
         else:
-            if glance_image.egi_image_hash != image.hash:
+            if glance_image.image_hash != image.hash:
                 LOG.warning(
                     "Image '%s' is '%s' in glance but checksums"
                     "are different, deleting it and reuploading.",
@@ -277,7 +277,7 @@ class Dispatcher(base.BaseDispatcher):
         }
         valid_images = [i.identifier for i in image_list.get_valid_subscribed_images()]
         for image in self.client.images.list(**kwargs):
-            appdb_id = image.get("egi_appdb_id", "")
+            appdb_id = image.get("appdb_id", "")
             if appdb_id not in valid_images:
                 LOG.warning(
                     "Glance image '%s' is not valid anymore, " "deleting it", image.id
