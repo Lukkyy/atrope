@@ -15,6 +15,7 @@
 import json
 
 import glanceclient.client
+import yaml
 from glanceclient import exc as glance_exc
 from keystoneauth1 import loading
 from keystoneclient.v3 import client as ks_client_v3
@@ -32,6 +33,16 @@ opts = [
         "formats",
         default=[],
         help="Formats to covert images to. Empty for no " "conversion.",
+    ),
+    cfg.StrOpt(
+        "vo_map",
+        default="/etc/atrope/vo_map.yaml",
+        help="Where the map from VO to projects is stored.",
+    ),
+    cfg.StrOpt(
+        "tag",
+        default="atrope",
+        help="Tag set on images managed by atrope.",
     ),
 ]
 CONF.register_opts(opts, group=CFG_GROUP)
@@ -55,9 +66,9 @@ class Dispatcher(base.BaseDispatcher):
     uploaded, and some metadata is associated to them so as to distinguish
     them from normal images:
 
-        - all images will be tagged with the tag "atrope".
+        - all images will be tagged with the tag set in the configuration ("atrope").
         - the following properties will be set:
-            - "sha512": will contain the sha512 checksum for the image.
+            - "image_hash": will contain the checksum for the image.
             - "vmcatcher_event_dc_description": will contain the appdb
               description
             - "vmcatcher_event_ad_mpuri": will contain the marketplate uri
@@ -77,6 +88,7 @@ class Dispatcher(base.BaseDispatcher):
     def __init__(self):
         self.client = self._get_glance_client()
         self.ks_client = self._get_ks_client()
+        self.vo_map = self._read_vo_map()
 
         # Format is not defined in the spec. What is format? Maybe it is the
         # container format? Or is it the image format? Try to do some ugly
@@ -106,6 +118,14 @@ class Dispatcher(base.BaseDispatcher):
         )
         return glanceclient.client.Client(2, session=session)
 
+    def _read_vo_map(self):
+        try:
+            with open(CONF.glance.vo_map, "rb") as f:
+                vo_map = yaml.safe_load(f) or {}
+        except IOError as e:
+            raise exception.CannotOpenFile(file=CONF.glance.vo_map, errno=e.errno)
+        return vo_map
+
     def dispatch(self, image_name, image, is_public, **kwargs):
         """Upload an image to the glance service.
 
@@ -117,7 +137,7 @@ class Dispatcher(base.BaseDispatcher):
         # TODO(aloga): missing hypervisor type, need list spec first
         metadata = {
             "name": image_name,
-            "tags": ["atrope"],
+            "tags": [CONF.glance.tag],
             "architecture": image.arch,
             "disk_format": None,
             "container_format": "bare",
@@ -128,14 +148,15 @@ class Dispatcher(base.BaseDispatcher):
             "vmcatcher_event_dc_description": image.description,
             "vmcatcher_event_ad_mpuri": image.mpuri,
             "appdb_id": image.identifier,
-            "sha512": image.sha512,
+            "image_hash": image.hash,
         }
 
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
             metadata["APPLIANCE_ATTRIBUTES"] = json.dumps(appliance_attrs)
 
-        project = kwargs.pop("project")
+        # project = kwargs.pop("project")
+        vos = kwargs.pop("vos")
 
         for k, v in kwargs.items():
             if k in metadata:
@@ -144,7 +165,7 @@ class Dispatcher(base.BaseDispatcher):
 
         kwargs = {
             "filters": {
-                "tag": ["atrope"],
+                "tag": [CONF.glance.tag],
                 "appdb_id": image.identifier,
             }
         }
@@ -153,7 +174,7 @@ class Dispatcher(base.BaseDispatcher):
         if len(images) > 1:
             images = [img.id for img in images]
             LOG.error(
-                "Found several images with same sha512, please remove "
+                "Found several images with same hash, please remove "
                 "them manually and run atrope again: %s",
                 images,
             )
@@ -164,9 +185,9 @@ class Dispatcher(base.BaseDispatcher):
         except IndexError:
             glance_image = None
         else:
-            if glance_image.sha512 != image.sha512:
+            if glance_image.image_hash != image.hash:
                 LOG.warning(
-                    "Image '%s' is '%s' in glance but sha512 checksums"
+                    "Image '%s' is '%s' in glance but checksums"
                     "are different, deleting it and reuploading.",
                     image.identifier,
                     glance_image.id,
@@ -207,43 +228,50 @@ class Dispatcher(base.BaseDispatcher):
                 glance_image.id,
             )
 
-        if glance_image.owner == project:
-            LOG.info("Image '%s' owned by dest project %s.", image.identifier, project)
-        elif metadata.get("vo", None) and project:
-            try:
-                self.client.images.update(glance_image.id, visibility="shared")
-                self.client.image_members.create(glance_image.id, project)
-            except glance_exc.HTTPConflict:
-                LOG.debug(
-                    "Image '%s' already associated with VO '%s', " "tenant '%s'",
-                    image.identifier,
-                    metadata["vo"],
-                    project,
+        for vo in vos:
+            project = self.vo_map.get(vo, {}).get("project_id", "")
+            if not project:
+                LOG.warning(
+                    "No project associated with VO '%s', image won't be shared.", vo
                 )
-            finally:
-                client = self._get_glance_client(project_id=project)
-                client.image_members.update(glance_image.id, project, "accepted")
-
+                continue
+            if glance_image.owner == project:
                 LOG.info(
-                    "Image '%s' associated with VO '%s', project '%s'",
-                    image.identifier,
-                    metadata["vo"],
-                    project,
+                    "Image '%s' owned by dest project %s.", image.identifier, project
                 )
-        else:
-            LOG.error(
-                "Image '%s' does not have a project associated!" % image.identifier
-            )
+            else:
+                if glance_image.visibility != "shared":
+                    LOG.debug("Set image '%s' as shared", image.identifier)
+                    self.client.images.update(glance_image.id, visibility="shared")
+                try:
+                    self.client.image_members.create(glance_image.id, project)
+                except glance_exc.HTTPConflict:
+                    LOG.debug(
+                        "Image '%s' already associated with VO '%s', " "tenant '%s'",
+                        image.identifier,
+                        vo,
+                        project,
+                    )
+                finally:
+                    client = self._get_glance_client(project_id=project)
+                    client.image_members.update(glance_image.id, project, "accepted")
+
+                    LOG.info(
+                        "Image '%s' associated with VO '%s', project '%s'",
+                        image.identifier,
+                        vo,
+                        project,
+                    )
 
     def sync(self, image_list):
-        """Sunc image list with dispached images.
+        """Sync image list with dispatched images.
 
         This method will remove images that were not set to be dispatched
         (i.e. that are not included in the list) that are present in Glance.
         """
         kwargs = {
             "filters": {
-                "tag": ["atrope"],
+                "tag": [CONF.glance.tag],
                 "image_list": image_list.name,
             }
         }
