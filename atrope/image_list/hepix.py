@@ -111,6 +111,7 @@ class HepixImageListSource(source.BaseImageListSource):
             subscribed_images=subscribed_images,
             prefix=prefix,
             project=project,
+            **kwargs,
         )
 
         self.token = kwargs.get("token", "")

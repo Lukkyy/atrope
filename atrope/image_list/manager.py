@@ -135,6 +135,7 @@ class YamlImageListManager(BaseImageListManager):
                     prefix=list_meta.pop("prefix", ""),
                     project=list_meta.pop("project", ""),
                     file_path=list_meta.pop("file_path", None),
+                    vos=list_meta.pop("vos", []),
                     **list_meta,
                 )
                 self.lists[name] = lst
@@ -144,6 +145,7 @@ class YamlImageListManager(BaseImageListManager):
                         name=name,
                         api_url=list_meta.pop("api_url", ""),
                         project=list_meta.pop("project", ""),
+                        vos=list_meta.pop("vos", []),
                         registry_host=list_meta.pop("registry_host", ""),
                         enabled=list_meta.pop("enabled", True),
                         subscribed_images=list_meta.pop("subscribed_images", []),

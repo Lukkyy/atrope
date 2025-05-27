@@ -47,6 +47,7 @@ class BaseImageListSource(object):
         subscribed_images=[],
         prefix="",
         project="",
+        vos=[],
         **kwargs,
     ):
         self.name = name
@@ -55,6 +56,7 @@ class BaseImageListSource(object):
         self.prefix = prefix
         self.subscribed_images = subscribed_images
         self.error = None
+        self.vos = vos
 
         self.project = project
 

@@ -79,14 +79,11 @@ class DispatcherManager(object):
 
         kwargs.setdefault("image_list", image_list.name)
         kwargs.setdefault("project", image_list.project)
+        kwargs.setdefault("vos", image_list.vos)
 
-        is_public = False if image_list.token else True
-
-        if image_list.image_list is not None and not isinstance(
-            image_list.image_list, list
-        ):  # TODO(lukas-moder): Refactor this
-            if image_list.image_list.vo is not None:
-                kwargs["vo"] = image_list.image_list.vo
+        # this is not working for non admin users
+        # is_public = False if image_list.token else True
+        is_public = False
 
         try:
             images = image_list.get_valid_subscribed_images()

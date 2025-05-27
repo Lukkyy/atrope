@@ -46,6 +46,7 @@ class HarborImageListSource(source.BaseImageListSource):
             subscribed_images=subscribed_images,
             prefix=prefix,
             project=project,
+            **kwargs,
         )
         self.api_url = api_url.rstrip("/")
         self.registry_host = (

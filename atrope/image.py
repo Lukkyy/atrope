@@ -353,6 +353,7 @@ class HarborImage(BaseImage):
         )
 
         self.title = image_ref
+        self.uri = image_ref
         self.mpuri = self.uri
 
         self.appliance_attributes = self.annotations
@@ -362,7 +363,6 @@ class HarborImage(BaseImage):
             if value:
                 setattr(self, dst, value)
 
-        self.uri = image_ref
         self.location = None
         self.locations = []
         # Harbor images do not expire
