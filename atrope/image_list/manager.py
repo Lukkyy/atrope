@@ -26,8 +26,15 @@ import atrope.image_list.harbor
 import atrope.image_list.hepix
 from atrope import cache, exception
 
+opts = [
+    cfg.StrOpt(
+        "image_sources",
+        default="/etc/atrope/sources.yaml",
+        help="Where the HEPiX image list sources are stored.",
+    ),
+]
 CONF = cfg.CONF
-CONF.import_opt("hepix_sources", "atrope.image_list.hepix", group="sources")
+CONF.register_opts(opts, group="sources")
 
 LOG = log.getLogger(__name__)
 
@@ -117,11 +124,11 @@ class YamlImageListManager(BaseImageListManager):
         """Load sources from YAML file."""
 
         try:
-            with open(CONF.sources.hepix_sources, "rb") as f:
+            with open(CONF.sources.image_sources, "rb") as f:
                 image_lists = yaml.safe_load(f) or {}
         except IOError as e:
             raise exception.CannotOpenFile(
-                file=CONF.sources.hepix_sources, errno=e.errno
+                file=CONF.sources.image_sources, errno=e.errno
             )
 
         for name, list_meta in image_lists.items():

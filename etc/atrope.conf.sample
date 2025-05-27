@@ -291,4 +291,4 @@
 #
 
 # Where the HEPiX image list sources are stored. (string value)
-#hepix_sources = /etc/atrope/hepix.yaml
+#image_sources = /etc/atrope/sources.yaml

@@ -21,22 +21,10 @@ import pprint
 import dateutil.parser
 import dateutil.tz
 import requests
-from oslo_config import cfg
 from oslo_log import log
 
 from atrope import endorser, exception, image, smime, utils
 from atrope.image_list import source
-
-opts = [
-    cfg.StrOpt(
-        "hepix_sources",
-        default="/etc/atrope/hepix.yaml",
-        help="Where the HEPiX image list sources are stored.",
-    ),
-]
-
-CONF = cfg.CONF
-CONF.register_opts(opts, group="sources")
 
 LOG = log.getLogger(__name__)
 
