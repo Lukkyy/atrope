@@ -73,7 +73,7 @@ class Dispatcher(base.BaseDispatcher):
               description
             - "vmcatcher_event_ad_mpuri": will contain the marketplate uri
             - "appdb_id": will contain the AppDB UUID
-            - "appliance_attributes": will contain the original data from
+            - "APPLIANCE_ATTRIBUTES": will contain the original data from
                the Hepix description as json if available
 
     Moreover, some glance property keys will be set:
@@ -153,7 +153,7 @@ class Dispatcher(base.BaseDispatcher):
 
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
-            metadata["appliance_attributes"] = json.dumps(appliance_attrs)
+            metadata["APPLIANCE_ATTRIBUTES"] = json.dumps(appliance_attrs)
 
         # project = kwargs.pop("project")
         vos = kwargs.pop("vos")
