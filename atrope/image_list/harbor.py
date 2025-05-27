@@ -63,7 +63,8 @@ class HarborImageListSource(source.BaseImageListSource):
         self.endorser = kwargs.get("endorser", {})
         self.token = kwargs.get("token", "")
 
-        # CHANGE THIS LATER
+        # Harbor images are trusted by default, do not expire and do not need verification
+        # We may want to change this by adding some metadata in the harbor project
         self.trusted = True
         self.verified = True
         self.expired = False
@@ -77,8 +78,8 @@ class HarborImageListSource(source.BaseImageListSource):
             self._session = requests.Session()
             if self.auth_user and self.auth_password:
                 self._session.auth = (self.auth_user, self.auth_password)
-            elif self.auth_token:
-                self._session.headers.update({"Authorization": self.auth_token})
+            elif self.token:
+                self._session.headers.update({"Authorization": self.token})
             else:
                 LOG.warning(
                     f"No authentication configured for Harbor source {self.name}"
@@ -296,10 +297,11 @@ class HarborImageListSource(source.BaseImageListSource):
 
     @source._set_error
     def fetch(self):
-        if not self.enabled or not self.api_url or not self.project:
-            LOG.info(
-                f"Harbor source '{self.name}' disabled or config incomplete, skipping fetch."
-            )
+        if not self.enabled:
+            LOG.info(f"Harbor source '{self.name}' disabled, skipping fetch.")
+            return
+        if not self.api_url or not self.project:
+            LOG.info(f"Harbor source '{self.name}' config incomplete, skipping fetch.")
             return
 
         LOG.info(
