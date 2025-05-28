@@ -145,7 +145,7 @@ class Dispatcher(base.BaseDispatcher):
             "os_version": image.osversion,
             "visibility": "public" if is_public else "private",
             # AppDB properties
-            "vmcatcher_event_dc_description": image.description,
+            "vmcatcher_event_dc_description": getattr(image, "description", ""),
             "vmcatcher_event_ad_mpuri": image.mpuri,
             "appdb_id": image.identifier,
             "image_hash": image.hash,
