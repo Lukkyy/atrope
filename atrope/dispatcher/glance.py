@@ -282,8 +282,17 @@ class Dispatcher(base.BaseDispatcher):
                 LOG.warning(
                     "Glance image '%s' is not valid anymore, " "deleting it", image.id
                 )
-                self.client.images.delete(image.id)
-
+                try:
+                    self.client.images.delete(image.id)
+                    LOG.info("Successfully deleted image '%s'", image.id)
+                except glance_exc.HTTPException as e:
+                    LOG.warning(
+                        "Failed to delete Glance image '%s': %s. "
+                        "Making it private and deactivating it instead.",
+                        image.id, e
+                    )
+                    self.client.images.update(image.id, visibility="private")
+                    self.client.images.deactivate(image.id)
         LOG.info("Sync terminated for image list '%s'", image_list.name)
 
     def _upload(self, id, image_fd):
