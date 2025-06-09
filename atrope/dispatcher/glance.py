@@ -44,6 +44,15 @@ opts = [
         default="atrope",
         help="Tag set on images managed by atrope.",
     ),
+    cfg.StrOpt(
+        "sharing_model",
+        default="shared",
+        choices=["shared", "community"],
+        help="The sharing model to use for images. 'shared' will use "
+             "Glance image members to share with specific projects. "
+             "'community' will set the image visibility to community, "
+             "making it available to all projects.",
+    ),
 ]
 CONF.register_opts(opts, group=CFG_GROUP)
 
@@ -86,6 +95,7 @@ class Dispatcher(base.BaseDispatcher):
     """
 
     def __init__(self):
+        self._glance_clients = {}
         self.client = self._get_glance_client()
         self.ks_client = self._get_ks_client()
         self.vo_map = self._read_vo_map()
@@ -106,17 +116,20 @@ class Dispatcher(base.BaseDispatcher):
         return ks_client_v3.Client(session=sess)
 
     def _get_glance_client(self, project_id=None):
-        if project_id:
-            auth_plugin = loading.load_auth_from_conf_options(
-                CONF, CFG_GROUP, project_id=project_id
-            )
-        else:
-            auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
+        cache_key = project_id or "default"
+        if cache_key not in self._glance_clients:
+            if project_id:
+                auth_plugin = loading.load_auth_from_conf_options(
+                    CONF, CFG_GROUP, project_id=project_id
+                )
+            else:
+                auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
 
-        session = loading.load_session_from_conf_options(
-            CONF, CFG_GROUP, auth=auth_plugin
-        )
-        return glanceclient.client.Client(2, session=session)
+            session = loading.load_session_from_conf_options(
+                CONF, CFG_GROUP, auth=auth_plugin
+            )
+            self._glance_clients[cache_key] = glanceclient.client.Client(2, session=session)
+        return self._glance_clients[cache_key]
 
     def _read_vo_map(self):
         try:
@@ -167,6 +180,11 @@ class Dispatcher(base.BaseDispatcher):
         """
         LOG.info("Glance dispatching '%s'", image.identifier)
 
+        if CONF.glance.sharing_model == 'community':
+            visibility = "community"
+        else:
+            visibility = "public" if is_public else "private"
+
         # TODO(aloga): missing hypervisor type, need list spec first
         metadata = {
             "name": image_name,
@@ -176,7 +194,7 @@ class Dispatcher(base.BaseDispatcher):
             "container_format": "bare",
             "os_distro": image.osname.lower(),
             "os_version": image.osversion,
-            "visibility": "public" if is_public else "private",
+            "visibility": visibility,
             # AppDB properties
             "vmcatcher_event_dc_description": getattr(image, "description", ""),
             "vmcatcher_event_ad_mpuri": image.mpuri,
@@ -255,29 +273,33 @@ class Dispatcher(base.BaseDispatcher):
             self._upload(glance_image.id, image_fd)
 
         if glance_image.status == "active":
+            if glance_image.visibility != visibility:
+                        LOG.info("Set image '%s' as '%s'", image.identifier, visibility)
+                        self.client.images.update(glance_image.id, visibility=visibility)
             LOG.info(
                 "Image '%s' stored in glance as '%s'.",
                 image.identifier,
                 glance_image.id,
             )
 
-        for vo in vos:
-            project = self.vo_map.get(vo, {}).get("project_id", "")
-            if not project:
-                LOG.warning(
-                    "No project associated with VO '%s', image won't be shared.", vo
-                )
-                continue
-            if glance_image.owner == project:
-                LOG.info(
-                    "Image '%s' owned by dest project %s.", image.identifier, project
-                )
-            else:
-                if glance_image.visibility != "shared":
-                    LOG.debug("Set image '%s' as shared", image.identifier)
-                    self.client.images.update(glance_image.id, visibility="shared")
-                self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
-        self._clean_stale_memberships(glance_image.id, vos)
+        if CONF.glance.sharing_model == 'shared':
+            for vo in vos:
+                project = self.vo_map.get(vo, {}).get("project_id", "")
+                if not project:
+                    LOG.warning(
+                        "No project associated with VO '%s', image won't be shared.", vo
+                    )
+                    continue
+                if glance_image.owner == project:
+                    LOG.info(
+                        "Image '%s' owned by dest project %s.", image.identifier, project
+                    )
+                else:
+                    if glance_image.visibility != "shared":
+                        LOG.debug("Set image '%s' as shared", image.identifier)
+                        self.client.images.update(glance_image.id, visibility="shared")
+                    self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
+            self._clean_stale_memberships(glance_image.id, vos)
 
     def sync(self, image_list):
         """Sync image list with dispatched images.

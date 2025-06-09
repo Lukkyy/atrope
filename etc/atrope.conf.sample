@@ -283,6 +283,8 @@
 # User's password (string value)
 #password = <None>
 
+# Image sharing model (string value)
+# sharing_model = community  # or 'shared' for current behaviour
 
 [sources]
 
