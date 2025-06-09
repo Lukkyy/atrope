@@ -125,6 +125,39 @@ class Dispatcher(base.BaseDispatcher):
         except IOError as e:
             raise exception.CannotOpenFile(file=CONF.glance.vo_map, errno=e.errno)
         return vo_map
+    
+    def _clean_stale_memberships(self, image_id, vos):
+        current_projects = {self.vo_map.get(vo, {}).get("project_id", "") for vo in vos}
+        members = self.client.image_members.list(image_id)
+        for member in members:
+            if member.member_id not in current_projects:
+                self.client.image_members.delete(image_id, member.member_id)
+                LOG.info(
+                        "Image '%s' not associated with project '%s' anymore, stopped sharing",
+                        image_id,
+                        member.member_id,
+                    )
+
+    def _share_image(self, vo, image, glance_image, project):
+        try:
+            self.client.image_members.create(glance_image.id, project)
+        except glance_exc.HTTPConflict:
+            LOG.debug(
+                "Image '%s' already associated with VO '%s', " "tenant '%s'",
+                image.identifier,
+                vo,
+                project,
+            )
+        finally:
+            client = self._get_glance_client(project_id=project)
+            client.image_members.update(glance_image.id, project, "accepted")
+
+            LOG.info(
+                "Image '%s' associated with VO '%s', project '%s'",
+                image.identifier,
+                vo,
+                project,
+            )
 
     def dispatch(self, image_name, image, is_public, **kwargs):
         """Upload an image to the glance service.
@@ -243,25 +276,8 @@ class Dispatcher(base.BaseDispatcher):
                 if glance_image.visibility != "shared":
                     LOG.debug("Set image '%s' as shared", image.identifier)
                     self.client.images.update(glance_image.id, visibility="shared")
-                try:
-                    self.client.image_members.create(glance_image.id, project)
-                except glance_exc.HTTPConflict:
-                    LOG.debug(
-                        "Image '%s' already associated with VO '%s', " "tenant '%s'",
-                        image.identifier,
-                        vo,
-                        project,
-                    )
-                finally:
-                    client = self._get_glance_client(project_id=project)
-                    client.image_members.update(glance_image.id, project, "accepted")
-
-                    LOG.info(
-                        "Image '%s' associated with VO '%s', project '%s'",
-                        image.identifier,
-                        vo,
-                        project,
-                    )
+                self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
+        self._clean_stale_memberships(glance_image.id, vos)
 
     def sync(self, image_list):
         """Sync image list with dispatched images.
