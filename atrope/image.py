@@ -351,6 +351,7 @@ class HarborImage(BaseImage):
         self.container_format = self.annotations.get(
             "org.openstack.glance.container_format", "bare"
         )
+        self.annotations["eu.egi.cloud.image_ref"] = image_ref
 
         self.title = image_ref
         self.uri = image_ref
