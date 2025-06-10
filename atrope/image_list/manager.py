@@ -131,6 +131,8 @@ class YamlImageListManager(BaseImageListManager):
                 file=CONF.sources.image_sources, errno=e.errno
             )
 
+        harbor_base_config = image_lists.pop("harbor", {})
+
         for name, list_meta in image_lists.items():
             source_type = list_meta.pop("type", "hepix").lower()
             if source_type == "hepix":
@@ -148,22 +150,26 @@ class YamlImageListManager(BaseImageListManager):
                 self.lists[name] = lst
             elif source_type == "harbor":
                 try:
+
+                    harbor_config = harbor_base_config.copy()
+                    harbor_config.update(list_meta)
+
                     lst = atrope.image_list.harbor.HarborImageListSource(
                         name=name,
-                        api_url=list_meta.pop("api_url", ""),
-                        project=list_meta.pop("project", ""),
-                        vos=list_meta.pop("vos", []),
-                        registry_host=list_meta.pop("registry_host", ""),
-                        enabled=list_meta.pop("enabled", True),
-                        subscribed_images=list_meta.pop("subscribed_images", []),
-                        prefix=list_meta.pop("prefix", ""),
-                        tag_pattern=list_meta.pop("tag_pattern", None),
-                        auth_user=list_meta.pop("auth_user", None),
-                        auth_password=list_meta.pop("auth_password", None),
-                        auth_token=list_meta.pop("auth_token", None),
-                        verify_ssl=list_meta.pop("verify_ssl", True),
-                        page_size=list_meta.pop("page_size", 50),
-                        **list_meta,
+                        api_url=harbor_config.pop("api_url", ""),
+                        project=harbor_config.pop("project", ""),
+                        vos=harbor_config.pop("vos", []),
+                        registry_host=harbor_config.pop("registry_host", ""),
+                        enabled=harbor_config.pop("enabled", True),
+                        subscribed_images=harbor_config.pop("subscribed_images", []),
+                        prefix=harbor_config.pop("prefix", ""),
+                        tag_pattern=harbor_config.pop("tag_pattern", None),
+                        auth_user=harbor_config.pop("auth_user", None),
+                        auth_password=harbor_config.pop("auth_password", None),
+                        auth_token=harbor_config.pop("auth_token", None),
+                        verify_ssl=harbor_config.pop("verify_ssl", True),
+                        page_size=harbor_config.pop("page_size", 50),
+                        **harbor_config,
                     )
                     self.add_image_list_source(lst)
                     LOG.debug(f"Loaded Harbor source: {name}")
