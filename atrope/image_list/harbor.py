@@ -35,7 +35,7 @@ class HarborImageListSource(source.BaseImageListSource):
         tag_pattern=None,
         auth_user=None,
         auth_password=None,
-        verify_ssl=True,
+        verify_ssl=False,
         page_size=50,
         **kwargs,
     ):
@@ -98,9 +98,10 @@ class HarborImageListSource(source.BaseImageListSource):
                 self._oras_registry = oras.provider.Registry(
                     self.registry_host,
                     auth_backend="basic",
+                    tls_verify=self.verify_ssl
                 )
                 self._oras_registry.login(
-                    username=self.auth_user, password=self.auth_password
+                    username=self.auth_user, password=self.auth_password, tls_verify=self.verify_ssl
                 )
             except FileNotFoundError:
                 raise exception.AtropeException(
