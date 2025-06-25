@@ -376,8 +376,6 @@ class HarborImage(BaseImage):
         try:
             registry = oras.provider.Registry(
                 self.registry_host,
-                insecure=True,
-                tls_verify=False,
                 auth_backend="basic",
             )
             registry.login(username=self.registry_username, password=self.registry_pwd)
