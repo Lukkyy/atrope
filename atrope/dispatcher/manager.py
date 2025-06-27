@@ -18,15 +18,15 @@ from oslo_log import log
 from atrope import exception, importutils
 
 opts = [
-    cfg.MultiStrOpt(
+    cfg.StrOpt(
         "dispatcher",
-        default=["noop"],
-        help="Dispatcher to process images. Can be specified " "multiple times.",
+        default="noop",
+        help="Dispatcher to process images.",
     ),
     cfg.StrOpt(
         "prefix",
         default="",
-        help="If set, the image name's will be prefixed by this " "option.",
+        help="If set, the image name's will be prefixed by this option.",
     ),
 ]
 
@@ -41,9 +41,8 @@ DISPATCHER_NAMESPACE = "atrope.dispatcher"
 class DispatcherManager(object):
     def __init__(self):
         self.dispatchers = []
-        for dispatcher in CONF.dispatchers.dispatcher:
-            cls_ = "%s.%s.Dispatcher" % (DISPATCHER_NAMESPACE, dispatcher)
-            self.dispatchers.append(importutils.import_class(cls_)())
+        cls_ = "%s.%s.Dispatcher" % (DISPATCHER_NAMESPACE, CONF.dispatchers.dispatcher)
+        self.dispatchers.append(importutils.import_class(cls_)())
 
     def sync(self, image_list, **kwargs):
         """Sync the images from one list with the dispatchers.

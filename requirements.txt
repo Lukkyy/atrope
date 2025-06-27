@@ -12,8 +12,7 @@ requests
 prettytable
 python-dateutil
 
-python-keystoneclient
-python-glanceclient
+openstacksdk
 keystoneauth1
 
 oras
