@@ -14,11 +14,10 @@
 
 import json
 
-import glanceclient.client
 import yaml
-from glanceclient import exc as glance_exc
 from keystoneauth1 import loading
-from keystoneclient.v3 import client as ks_client_v3
+from openstack import connection
+from openstack.exceptions import ConflictException
 from oslo_config import cfg
 from oslo_log import log
 
@@ -58,11 +57,13 @@ CONF.register_opts(opts, group=CFG_GROUP)
 
 loading.register_auth_conf_options(CONF, CFG_GROUP)
 loading.register_session_conf_options(CONF, CFG_GROUP)
+loading.register_adapter_conf_options(CONF, CFG_GROUP)
 
 opts = (
     loading.get_auth_common_conf_options()
     + loading.get_session_conf_options()
     + loading.get_auth_plugin_conf_options("password")
+    + loading.get_adapter_conf_options()
 )
 
 LOG = log.getLogger(__name__)
@@ -95,41 +96,25 @@ class Dispatcher(base.BaseDispatcher):
     """
 
     def __init__(self):
-        self._glance_clients = {}
-        self.client = self._get_glance_client()
-        self.ks_client = self._get_ks_client()
+        self.client = self._get_openstack_client()
         self.vo_map = self._read_vo_map()
 
-        # Format is not defined in the spec. What is format? Maybe it is the
-        # container format? Or is it the image format? Try to do some ugly
-        # magic and infer what is this for...
-        # This makes me sad :-(
-        LOG.debug(
-            "The image spec is broken and I will try to guess what "
-            "the container and the image format are. I cannot "
-            "promise anything."
-        )
-
-    def _get_ks_client(self):
-        auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
-        sess = loading.load_session_from_conf_options(CONF, CFG_GROUP, auth=auth_plugin)
-        return ks_client_v3.Client(session=sess)
-
-    def _get_glance_client(self, project_id=None):
-        cache_key = project_id or "default"
-        if cache_key not in self._glance_clients:
-            if project_id:
-                auth_plugin = loading.load_auth_from_conf_options(
-                    CONF, CFG_GROUP, project_id=project_id
-                )
-            else:
-                auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
-
-            session = loading.load_session_from_conf_options(
-                CONF, CFG_GROUP, auth=auth_plugin
+    def _get_openstack_client(self, project_id=None):
+        if project_id:
+            auth_plugin = loading.load_auth_from_conf_options(
+                CONF, CFG_GROUP, project_id=project_id
             )
-            self._glance_clients[cache_key] = glanceclient.client.Client(2, session=session)
-        return self._glance_clients[cache_key]
+        else:
+            auth_plugin = loading.load_auth_from_conf_options(CONF, CFG_GROUP)
+
+        session = loading.load_session_from_conf_options(
+            CONF, CFG_GROUP, auth=auth_plugin
+        )
+        conn = connection.Connection(
+            session=session,
+            oslo_conf=CONF,
+        )
+        return conn
 
     def _read_vo_map(self):
         try:
@@ -189,9 +174,9 @@ class Dispatcher(base.BaseDispatcher):
         metadata = {
             "name": image_name,
             "tags": [CONF.glance.tag],
+            "container_format": "bare",
             "architecture": image.arch,
             "disk_format": None,
-            "container_format": "bare",
             "os_distro": image.osname.lower(),
             "os_version": image.osversion,
             "visibility": visibility,
@@ -206,7 +191,6 @@ class Dispatcher(base.BaseDispatcher):
         if appliance_attrs:
             metadata["APPLIANCE_ATTRIBUTES"] = json.dumps(appliance_attrs)
 
-        # project = kwargs.pop("project")
         vos = kwargs.pop("vos")
 
         for k, v in kwargs.items():
@@ -214,14 +198,11 @@ class Dispatcher(base.BaseDispatcher):
                 raise exception.MetadataOverwriteNotSupported(key=k)
             metadata[k] = v
 
-        kwargs = {
-            "filters": {
-                "tag": [CONF.glance.tag],
-                "appdb_id": image.identifier,
-            }
-        }
-        # TODO(aloga): what if we have several images here?
-        images = list(self.client.images.list(**kwargs))
+        images = [
+            img
+            for img in self.client.image.images(tag=CONF.glance.tag)
+            if img.properties.get("appdb_id", "") == image.identifier
+        ]
         if len(images) > 1:
             images = [img.id for img in images]
             LOG.error(
@@ -236,14 +217,14 @@ class Dispatcher(base.BaseDispatcher):
         except IndexError:
             glance_image = None
         else:
-            if glance_image.image_hash != image.hash:
+            if glance_image.properties.get("image_hash", "") != image.hash:
                 LOG.warning(
                     "Image '%s' is '%s' in glance but checksums"
                     "are different, deleting it and reuploading.",
                     image.identifier,
                     glance_image.id,
                 )
-                self.client.images.delete(glance_image.id)
+                self.client.image.delete_image(glance_image.id)
                 glance_image = None
 
         metadata["disk_format"], image_fd = image.convert(CONF.glance.formats)
@@ -266,11 +247,13 @@ class Dispatcher(base.BaseDispatcher):
 
         if not glance_image:
             LOG.debug("Creating image '%s'.", image.identifier)
-            glance_image = self.client.images.create(**metadata)
+            glance_image = self.client.image.create_image(
+                **metadata, allow_duplicates=True
+            )
 
         if glance_image.status == "queued":
             LOG.debug("Uploading image '%s'.", image.identifier)
-            self._upload(glance_image.id, image_fd)
+            glance_image.upload(self.client.image, data=image_fd)
 
         if glance_image.status == "active":
             if glance_image.visibility != visibility:
@@ -281,6 +264,7 @@ class Dispatcher(base.BaseDispatcher):
                 image.identifier,
                 glance_image.id,
             )
+
 
         if CONF.glance.sharing_model == 'shared':
             for vo in vos:
@@ -297,7 +281,7 @@ class Dispatcher(base.BaseDispatcher):
                 else:
                     if glance_image.visibility != "shared":
                         LOG.debug("Set image '%s' as shared", image.identifier)
-                        self.client.images.update(glance_image.id, visibility="shared")
+                        self.client.image.update(glance_image.id, visibility="shared")
                     self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
             self._clean_stale_memberships(glance_image.id, vos)
 
@@ -307,15 +291,11 @@ class Dispatcher(base.BaseDispatcher):
         This method will remove images that were not set to be dispatched
         (i.e. that are not included in the list) that are present in Glance.
         """
-        kwargs = {
-            "filters": {
-                "tag": [CONF.glance.tag],
-                "image_list": image_list.name,
-            }
-        }
         valid_images = [i.identifier for i in image_list.get_valid_subscribed_images()]
-        for image in self.client.images.list(**kwargs):
-            appdb_id = image.get("appdb_id", "")
+        for image in self.client.image.images(tag=CONF.glance.tag):
+            if image.properties.get("image_list", "") != image_list.name:
+                continue
+            appdb_id = image.properties.get("appdb_id", "")
             if appdb_id not in valid_images:
                 LOG.warning(
                     "Glance image '%s' is not valid anymore, " "deleting it", image.id

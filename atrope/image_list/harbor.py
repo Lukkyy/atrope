@@ -193,10 +193,10 @@ class HarborImageListSource(source.BaseImageListSource):
             )
             return
 
-        processed_artifact_tags = set()
+        matching_tag = None
         for tag_info in artifact.get("tags", []):
             tag_name = tag_info.get("name")
-            if not tag_name or tag_name in processed_artifact_tags:
+            if not tag_name:
                 continue
 
             process_this_tag = False
@@ -211,46 +211,53 @@ class HarborImageListSource(source.BaseImageListSource):
                     process_this_tag = True
             elif not self.subscribed_images and not self.tag_pattern_re:
                 process_this_tag = True
-
             if process_this_tag:
-                try:
-                    image_ref = f"{repo_name}:{tag_name}"
-                    annotations = artifact.get("extra_attrs", {}).get("annotations", {})
-                    # update annotations with the ones in the manifest
-                    manifest = self.get_manifest(image_ref)
-                    # we are assuming here a single annotation, this may not be true
-                    annotations.update(
-                        manifest.get("layers", [{}])[0].get("annotations", {})
-                    )
-                    image_digest = manifest.get("layers", [{}])[0].get("digest")
-                    digest = artifact.get("digest", "")
-                    if not annotations and "annotations" in artifact:
-                        annotations = artifact.get("annotations", {})
+                matching_tag = tag_name
+                break
+        if matching_tag:
+            try:
+                image_ref = f"{repo_name}:{matching_tag}"
+                annotations = artifact.get("extra_attrs", {}).get("annotations", {})
+                # update annotations with the ones in the manifest
+                manifest = self.get_manifest(image_ref)
+                # we are assuming here a single layer, this may not be true
+                annotations.update(
+                    manifest.get("layers", [{}])[0].get("annotations", {})
+                )
+                image_digest = manifest.get("layers", [{}])[0].get("digest")
+                digest = artifact.get("digest", "")
+                if not annotations and "annotations" in artifact:
+                    annotations = artifact.get("annotations", {})
 
-                    if not annotations:
-                        LOG.warning(
-                            f"No annotations found for {image_ref} in API list response."
-                        )
-
-                    img = image.HarborImage(
-                        image_ref,
-                        self.registry_host,
-                        self.auth_user,
-                        self.auth_password,
-                        annotations,
-                        self.name,
-                        digest,
-                        image_digest,
+                if not annotations:
+                    LOG.warning(
+                        f"No annotations found for {image_ref} in API list response."
                     )
-                    self.image_list.append(img)
-                    processed_artifact_tags.add(tag_name)
-                    LOG.debug(f"Added Harbor image from API: {image_ref}")
 
-                except Exception as e:
-                    LOG.error(
-                        f"Failed to process artifact tag {repo_name}:{tag_name}: {e}",
-                        exc_info=True,
+                if "eu.egi.cloud.tag" not in annotations:
+                    LOG.warning(
+                        f"No 'eu.egi.cloud.tag' annotation found for {image_ref}, ignoring."
                     )
+                    return
+
+                img = image.HarborImage(
+                    image_ref,
+                    self.registry_host,
+                    self.auth_user,
+                    self.auth_password,
+                    annotations,
+                    self.name,
+                    digest,
+                    image_digest,
+                )
+                self.image_list.append(img)
+                LOG.debug(f"Added Harbor image from API: {image_ref}")
+
+            except Exception as e:
+                LOG.error(
+                    f"Failed to process artifact tag {repo_name}:{tag_name}: {e}",
+                    exc_info=True,
+                )
 
     def _process_repository(self, repo_info):
         """Fetches and processes artifacts for a given repository."""
