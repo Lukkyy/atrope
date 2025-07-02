@@ -17,7 +17,7 @@ import json
 import yaml
 from keystoneauth1 import loading
 from openstack import connection
-from openstack.exceptions import ConflictException
+from openstack.exceptions import ConflictException, HttpException
 from oslo_config import cfg
 from oslo_log import log
 
@@ -126,10 +126,10 @@ class Dispatcher(base.BaseDispatcher):
     
     def _clean_stale_memberships(self, image_id, vos):
         current_projects = {self.vo_map.get(vo, {}).get("project_id", "") for vo in vos}
-        members = self.client.image_members.list(image_id)
+        members = self.client.image.members(image_id)
         for member in members:
             if member.member_id not in current_projects:
-                self.client.image_members.delete(image_id, member.member_id)
+                self.client.image.remove_member(image_id, member.member_id)
                 LOG.info(
                         "Image '%s' not associated with project '%s' anymore, stopped sharing",
                         image_id,
@@ -138,8 +138,8 @@ class Dispatcher(base.BaseDispatcher):
 
     def _share_image(self, vo, image, glance_image, project):
         try:
-            self.client.image_members.create(glance_image.id, project)
-        except glance_exc.HTTPConflict:
+            self.client.image.add_member(glance_image.id, member_id=project)
+        except ConflictException:
             LOG.debug(
                 "Image '%s' already associated with VO '%s', " "tenant '%s'",
                 image.identifier,
@@ -147,8 +147,10 @@ class Dispatcher(base.BaseDispatcher):
                 project,
             )
         finally:
-            client = self._get_glance_client(project_id=project)
-            client.image_members.update(glance_image.id, project, "accepted")
+            client = self._get_openstack_client(project_id=project)
+            client.image.update_member(
+                member=project, image=glance_image.id, status="accepted"
+                )
 
             LOG.info(
                 "Image '%s' associated with VO '%s', project '%s'",
@@ -258,7 +260,7 @@ class Dispatcher(base.BaseDispatcher):
         if glance_image.status == "active":
             if glance_image.visibility != visibility:
                         LOG.info("Set image '%s' as '%s'", image.identifier, visibility)
-                        self.client.images.update(glance_image.id, visibility=visibility)
+                        self.client.image.update_image(glance_image.id, visibility=visibility)
             LOG.info(
                 "Image '%s' stored in glance as '%s'.",
                 image.identifier,
@@ -281,7 +283,7 @@ class Dispatcher(base.BaseDispatcher):
                 else:
                     if glance_image.visibility != "shared":
                         LOG.debug("Set image '%s' as shared", image.identifier)
-                        self.client.image.update(glance_image.id, visibility="shared")
+                        self.client.image.update_image(glance_image.id, visibility="shared")
                     self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
             self._clean_stale_memberships(glance_image.id, vos)
 
@@ -301,20 +303,20 @@ class Dispatcher(base.BaseDispatcher):
                     "Glance image '%s' is not valid anymore, " "deleting it", image.id
                 )
                 try:
-                    self.client.images.delete(image.id)
+                    self.client.image.delete_image(image.id)
                     LOG.info("Successfully deleted image '%s'", image.id)
-                except glance_exc.HTTPException as e:
+                except HttpException as e:
                     LOG.warning(
                         "Failed to delete Glance image '%s': %s. "
                         "Making it private and deactivating it instead.",
                         image.id, e
                     )
-                    self.client.images.update(image.id, visibility="private")
-                    self.client.images.deactivate(image.id)
+                    self.client.image.update_image(image.id, visibility="private")
+                    self.client.image.deactivate_image(image.id)
         LOG.info("Sync terminated for image list '%s'", image_list.name)
 
     def _upload(self, id, image_fd):
-        self.client.images.upload(id, image_fd)
+        self.client.image.upload(id, image_fd)
 
     def _guess_formats(self, smth_format):
         if smth_format == "ova":
