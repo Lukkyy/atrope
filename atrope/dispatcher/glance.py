@@ -285,7 +285,8 @@ class Dispatcher(base.BaseDispatcher):
                         LOG.debug("Set image '%s' as shared", image.identifier)
                         self.client.image.update_image(glance_image.id, visibility="shared")
                     self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
-            self._clean_stale_memberships(glance_image.id, vos)
+            if glance_image.visibility == "shared":
+                self._clean_stale_memberships(glance_image.id, vos)
 
     def sync(self, image_list):
         """Sync image list with dispatched images.
