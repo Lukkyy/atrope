@@ -124,7 +124,8 @@ class Dispatcher(base.BaseDispatcher):
             raise exception.CannotOpenFile(file=CONF.glance.vo_map, errno=e.errno)
         return vo_map
     
-    def _clean_stale_memberships(self, image_id, vos):
+    def _clean_stale_memberships(self, image_id, vos, visibility):
+        self.client.image.update_image(image_id, visibility="shared")
         current_projects = {self.vo_map.get(vo, {}).get("project_id", "") for vo in vos}
         members = self.client.image.members(image_id)
         for member in members:
@@ -135,6 +136,7 @@ class Dispatcher(base.BaseDispatcher):
                         image_id,
                         member.member_id,
                     )
+        self.client.image.update_image(image_id, visibility=visibility)
 
     def _share_image(self, vo, image, glance_image, project):
         try:
@@ -167,8 +169,12 @@ class Dispatcher(base.BaseDispatcher):
         """
         LOG.info("Glance dispatching '%s'", image.identifier)
 
+        vos = kwargs.pop("vos")
+
         if CONF.glance.sharing_model == 'community':
             visibility = "community"
+        elif CONF.glance.sharing_model == 'shared' and vos:
+            visibility = "shared"
         else:
             visibility = "public" if is_public else "private"
 
@@ -192,8 +198,6 @@ class Dispatcher(base.BaseDispatcher):
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
             metadata["APPLIANCE_ATTRIBUTES"] = json.dumps(appliance_attrs)
-
-        vos = kwargs.pop("vos")
 
         for k, v in kwargs.items():
             if k in metadata:
@@ -283,10 +287,11 @@ class Dispatcher(base.BaseDispatcher):
                 else:
                     if glance_image.visibility != "shared":
                         LOG.debug("Set image '%s' as shared", image.identifier)
+                        visibility = "shared"
                         self.client.image.update_image(glance_image.id, visibility="shared")
                     self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
-            if glance_image.visibility == "shared":
-                self._clean_stale_memberships(glance_image.id, vos)
+            
+            self._clean_stale_memberships(glance_image.id, vos, visibility)
 
     def sync(self, image_list):
         """Sync image list with dispatched images.
