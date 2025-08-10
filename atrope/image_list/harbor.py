@@ -35,7 +35,7 @@ class HarborImageListSource(source.BaseImageListSource):
         tag_pattern=None,
         auth_user=None,
         auth_password=None,
-        verify_ssl=False,
+        verify_ssl=True,
         page_size=50,
         **kwargs,
     ):
