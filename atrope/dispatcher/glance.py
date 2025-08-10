@@ -48,9 +48,9 @@ opts = [
         default="shared",
         choices=["shared", "community"],
         help="The sharing model to use for images. 'shared' will use "
-             "Glance image members to share with specific projects. "
-             "'community' will set the image visibility to community, "
-             "making it available to all projects.",
+        "Glance image members to share with specific projects. "
+        "'community' will set the image visibility to community, "
+        "making it available to all projects.",
     ),
 ]
 CONF.register_opts(opts, group=CFG_GROUP)
@@ -123,7 +123,7 @@ class Dispatcher(base.BaseDispatcher):
         except IOError as e:
             raise exception.CannotOpenFile(file=CONF.glance.vo_map, errno=e.errno)
         return vo_map
-    
+
     def _clean_stale_memberships(self, image_id, vos, visibility):
         self.client.image.update_image(image_id, visibility="shared")
         current_projects = {self.vo_map.get(vo, {}).get("project_id", "") for vo in vos}
@@ -132,10 +132,10 @@ class Dispatcher(base.BaseDispatcher):
             if member.member_id not in current_projects:
                 self.client.image.remove_member(image_id, member.member_id)
                 LOG.info(
-                        "Image '%s' not associated with project '%s' anymore, stopped sharing",
-                        image_id,
-                        member.member_id,
-                    )
+                    "Image '%s' not associated with project '%s' anymore, stopped sharing",
+                    image_id,
+                    member.member_id,
+                )
         self.client.image.update_image(image_id, visibility=visibility)
 
     def _share_image(self, image, glance_image, project):
@@ -151,7 +151,7 @@ class Dispatcher(base.BaseDispatcher):
             client = self._get_openstack_client(project_id=project)
             client.image.update_member(
                 member=project, image=glance_image.id, status="accepted"
-                )
+            )
 
             LOG.info(
                 "Image '%s' associated with project '%s'",
@@ -169,9 +169,9 @@ class Dispatcher(base.BaseDispatcher):
 
         vos = kwargs.pop("vos")
 
-        if CONF.glance.sharing_model == 'community':
+        if CONF.glance.sharing_model == "community":
             visibility = "community"
-        elif CONF.glance.sharing_model == 'shared' and vos:
+        elif CONF.glance.sharing_model == "shared" and vos:
             visibility = "shared"
         else:
             visibility = "public" if is_public else "private"
@@ -261,16 +261,15 @@ class Dispatcher(base.BaseDispatcher):
 
         if glance_image.status == "active":
             if glance_image.visibility != visibility:
-                        LOG.info("Set image '%s' as '%s'", image.identifier, visibility)
-                        self.client.image.update_image(glance_image.id, visibility=visibility)
+                LOG.info("Set image '%s' as '%s'", image.identifier, visibility)
+                self.client.image.update_image(glance_image.id, visibility=visibility)
             LOG.info(
                 "Image '%s' stored in glance as '%s'.",
                 image.identifier,
                 glance_image.id,
             )
 
-
-        if CONF.glance.sharing_model == 'shared':
+        if CONF.glance.sharing_model == "shared":
             for vo in vos:
                 project = self.vo_map.get(vo, {}).get("project_id", "")
                 if not project:
@@ -280,15 +279,21 @@ class Dispatcher(base.BaseDispatcher):
                     continue
                 if glance_image.owner == project:
                     LOG.info(
-                        "Image '%s' owned by dest project %s.", image.identifier, project
+                        "Image '%s' owned by dest project %s.",
+                        image.identifier,
+                        project,
                     )
                 else:
                     if glance_image.visibility != "shared":
                         LOG.debug("Set image '%s' as shared", image.identifier)
                         visibility = "shared"
-                        self.client.image.update_image(glance_image.id, visibility="shared")
-                    self._share_image(vo=vo, image=image, glance_image=glance_image, project=project)
-            
+                        self.client.image.update_image(
+                            glance_image.id, visibility="shared"
+                        )
+                    self._share_image(
+                        vo=vo, image=image, glance_image=glance_image, project=project
+                    )
+
             self._clean_stale_memberships(glance_image.id, vos, visibility)
 
     def sync(self, image_list):
@@ -313,7 +318,8 @@ class Dispatcher(base.BaseDispatcher):
                     LOG.warning(
                         "Failed to delete Glance image '%s': %s. "
                         "Making it private and deactivating it instead.",
-                        image.id, e
+                        image.id,
+                        e,
                     )
                     self.client.image.update_image(image.id, visibility="private")
                     self.client.image.deactivate_image(image.id)
