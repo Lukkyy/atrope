@@ -138,14 +138,13 @@ class Dispatcher(base.BaseDispatcher):
                     )
         self.client.image.update_image(image_id, visibility=visibility)
 
-    def _share_image(self, vo, image, glance_image, project):
+    def _share_image(self, image, glance_image, project):
         try:
             self.client.image.add_member(glance_image.id, member_id=project)
         except ConflictException:
             LOG.debug(
-                "Image '%s' already associated with VO '%s', " "tenant '%s'",
+                "Image '%s' already associated with project '%s'",
                 image.identifier,
-                vo,
                 project,
             )
         finally:
@@ -155,9 +154,8 @@ class Dispatcher(base.BaseDispatcher):
                 )
 
             LOG.info(
-                "Image '%s' associated with VO '%s', project '%s'",
+                "Image '%s' associated with project '%s'",
                 image.identifier,
-                vo,
                 project,
             )
 
