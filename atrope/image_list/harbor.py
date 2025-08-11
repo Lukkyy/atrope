@@ -96,11 +96,12 @@ class HarborImageListSource(source.BaseImageListSource):
         if self._oras_registry is None:
             try:
                 self._oras_registry = oras.provider.Registry(
-                    self.registry_host,
-                    auth_backend="basic",
+                    self.registry_host, auth_backend="basic", tls_verify=self.verify_ssl
                 )
                 self._oras_registry.login(
-                    username=self.auth_user, password=self.auth_password
+                    username=self.auth_user,
+                    password=self.auth_password,
+                    tls_verify=self.verify_ssl,
                 )
             except FileNotFoundError:
                 raise exception.AtropeException(

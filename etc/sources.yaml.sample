@@ -18,19 +18,25 @@ vo.fedcloud.egi.eu:
     prefix: "FEDCLOUD "
     project: bb02bda767b4490a82b2f62f9347a0f5
 
+# Global Harbor configuration
 harbor:
-    enabled: true
-    type: harbor
     api_url: "http://harbor.adress/api/v2.0"
-    project: "myproject"
     registry_host: "harbor.adress"
-    auth_user: "user"
+    prefix: "HARBOR "
+    verify_ssl: true
+    page_size: 30
+
+# Harbor project configuration
+harbor_project:
+    type: "harbor"
+    enabled: true
+    project: "myproject"
+    auth_user: "user"             
     auth_password: "password"
     images: []
-    prefix: "HARBOR "
-    verify_ssl: false
-    page_size: 30
-    endorser:
+    subscribed_images: []
+    vos:
+        - "vo_name"
 
 foo:
     enabled: false
