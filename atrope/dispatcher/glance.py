@@ -285,7 +285,7 @@ class Dispatcher(base.BaseDispatcher):
                             glance_image.id, visibility="shared"
                         )
                     self._share_image(
-                        vo=vo, image=image, glance_image=glance_image, project=project
+                        image=image, glance_image=glance_image, project=project
                     )
 
             self._clean_stale_memberships(glance_image.id, vos, sharing_model)
