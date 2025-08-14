@@ -80,9 +80,7 @@ class DispatcherManager(object):
         kwargs.setdefault("project", image_list.project)
         kwargs.setdefault("vos", image_list.vos)
 
-        # this is not working for non admin users
-        # is_public = False if image_list.token else True
-        is_public = False
+        sharing_model = getattr(image_list, "sharing_model", "private")
 
         try:
             images = image_list.get_valid_subscribed_images()
@@ -100,14 +98,14 @@ class DispatcherManager(object):
                 "image name": image.title,
             }
             LOG.info(image_name)
-            self._dispatch_image(image_name, image, is_public, **kwargs)
+            self._dispatch_image(image_name, image, sharing_model, **kwargs)
 
-    def _dispatch_image(self, image_name, image, is_public, **kwargs):
+    def _dispatch_image(self, image_name, image, sharing_model, **kwargs):
         """Dispatch a single image to each of the dispatchers."""
         LOG.info(f"DISPATCHERS: {self.dispatchers}")
         for dispatcher in self.dispatchers:
             try:
-                dispatcher.dispatch(image_name, image, is_public, **kwargs)
+                dispatcher.dispatch(image_name, image, sharing_model, **kwargs)
             except Exception as e:
                 LOG.exception(
                     "An exception has occured when dispatching "

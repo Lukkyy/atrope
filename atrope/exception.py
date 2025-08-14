@@ -127,3 +127,7 @@ class MetadataOverwriteNotSupported(AtropeException):
 
 class GlanceInvalidMappingFIle(GlanceError):
     msg_fmt = "Cannot load %(file)s mapping file: %(reason)s."
+
+
+class GlancePermissionError(GlanceError):
+    msg_fmt = "Not authorized to perform Glance action: %(action)s."

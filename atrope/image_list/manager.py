@@ -169,6 +169,7 @@ class YamlImageListManager(BaseImageListManager):
                         auth_token=harbor_config.pop("auth_token", None),
                         verify_ssl=harbor_config.pop("verify_ssl", True),
                         page_size=harbor_config.pop("page_size", 50),
+                        sharing_model=harbor_config.pop("sharing_model", "private"),
                         **harbor_config,
                     )
                     self.add_image_list_source(lst)

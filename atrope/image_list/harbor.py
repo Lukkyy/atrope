@@ -37,6 +37,7 @@ class HarborImageListSource(source.BaseImageListSource):
         auth_password=None,
         verify_ssl=True,
         page_size=50,
+        sharing_model="private",
         **kwargs,
     ):
         super().__init__(
@@ -62,6 +63,7 @@ class HarborImageListSource(source.BaseImageListSource):
         self._oras_registry = None
         self.endorser = kwargs.get("endorser", {})
         self.token = kwargs.get("token", "")
+        self.sharing_model = sharing_model
 
         # Harbor images are trusted by default, do not expire and do not need verification
         # We may want to change this by adding some metadata in the harbor project
