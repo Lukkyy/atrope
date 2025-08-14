@@ -17,7 +17,7 @@ import json
 import yaml
 from keystoneauth1 import loading
 from openstack import connection
-from openstack.exceptions import ConflictException, HttpException, ForbiddenException
+from openstack.exceptions import ConflictException, ForbiddenException, HttpException
 from oslo_config import cfg
 from oslo_log import log
 
