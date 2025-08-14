@@ -159,6 +159,8 @@ class Dispatcher(base.BaseDispatcher):
         LOG.info("Glance dispatching '%s'", image.identifier)
 
         vos = kwargs.pop("vos")
+        if vos:
+            sharing_model = "shared"
 
         # TODO(aloga): missing hypervisor type, need list spec first
         metadata = {
