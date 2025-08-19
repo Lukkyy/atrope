@@ -76,15 +76,21 @@ class Dispatcher(base.BaseDispatcher):
             - "appdb_id": will contain the AppDB UUID
             - "APPLIANCE_ATTRIBUTES": will contain the original data from
                the Hepix description as json if available
+            - "disk_format": as defined by the image or the converted format
+              supported by the site
+            - "container_format": set as 'bare'
 
-    Moreover, some glance property keys will be set:
+    Moreover, some glance property keys will be set (if available):
         - os_version
-        - os_name
+        - os_distro
         - architecture
-        - disk_format
-        - container_format
-
     """
+
+    property_map = {
+        "os_version": "osversion",
+        "os_distro": "osname",
+        "architecture": "arch",
+    }
 
     def __init__(self):
         self.client = self._get_openstack_client()
@@ -166,11 +172,6 @@ class Dispatcher(base.BaseDispatcher):
         metadata = {
             "name": image_name,
             "tags": [CONF.glance.tag],
-            "container_format": "bare",
-            "architecture": image.arch,
-            "disk_format": None,
-            "os_distro": image.osname.lower(),
-            "os_version": image.osversion,
             "visibility": sharing_model,
             # AppDB properties
             "vmcatcher_event_dc_description": getattr(image, "description", ""),
@@ -178,6 +179,12 @@ class Dispatcher(base.BaseDispatcher):
             "appdb_id": image.identifier,
             "image_hash": image.hash,
         }
+
+        # Optional attributes
+        for prop, attr in self.property_map.items():
+            value = getattr(image, attr, None)
+            if value:
+                metadata[prop] = value
 
         appliance_attrs = getattr(image, "appliance_attributes")
         if appliance_attrs:
@@ -234,6 +241,9 @@ class Dispatcher(base.BaseDispatcher):
             "root-tar",
         ]:
             metadata["disk_format"] = "raw"
+        metadata["container_format"] = (
+            "bare" if metadata["disk_format"] not in ["vmdk"] else "ova"
+        )
 
         if not glance_image:
             LOG.debug("Creating image '%s'.", image.identifier)
@@ -323,18 +333,3 @@ class Dispatcher(base.BaseDispatcher):
 
     def _upload(self, id, image_fd):
         self.client.image.upload(id, image_fd)
-
-    def _guess_formats(self, smth_format):
-        if smth_format == "ova":
-            container_format = "ova"
-            disk_format = "vmdk"
-        elif smth_format == "standard":
-            # This is ugly
-            container_format = "bare"
-            disk_format = "raw"
-        elif smth_format == "qcow2":
-            container_format = "bare"
-            disk_format = "qcow2"
-        else:
-            raise exception.ImageListSpecIsBorken()
-        return container_format, disk_format

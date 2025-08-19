@@ -4,7 +4,7 @@
 
 import re
 import subprocess
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import oras.provider
 import requests
@@ -50,9 +50,7 @@ class HarborImageListSource(source.BaseImageListSource):
             **kwargs,
         )
         self.api_url = api_url.rstrip("/")
-        self.registry_host = (
-            registry_host or self.api_url.split("//", 1)[-1].split("/", 1)[0]
-        )
+        self.registry_host = registry_host or urlparse(api_url)[1]
         self.tag_pattern_re = re.compile(tag_pattern) if tag_pattern else None
         self.auth_user = auth_user
         self.auth_password = auth_password
@@ -136,6 +134,8 @@ class HarborImageListSource(source.BaseImageListSource):
                 LOG.debug(
                     f"Fetching page {page} from {current_url} with params {current_params}"
                 )
+                if not urlparse(current_url)[0]:
+                    current_url = urljoin(self.api_url, current_url)
                 response = session.get(current_url, params=current_params)
                 response.raise_for_status()
                 data = response.json()
