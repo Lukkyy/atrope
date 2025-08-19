@@ -118,7 +118,7 @@ class HarborImageListSource(source.BaseImageListSource):
     def get_manifest(self, image_ref):
         """Helper specifically for running oras pull command."""
         registry = self._get_oras_registry()
-        return registry.get_manifest(image_ref)
+        return registry.get_manifest(f"{self.registry_host}/{image_ref}")
 
     def _fetch_paginated_data(self, url, params=None):
         """Helper to fetch data from a paginated Harbor API endpoint."""
