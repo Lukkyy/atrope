@@ -17,7 +17,7 @@ import json
 import yaml
 from keystoneauth1 import loading
 from openstack import connection
-from openstack.exceptions import ConflictException, HttpException
+from openstack.exceptions import ConflictException, ForbiddenException, HttpException
 from oslo_config import cfg
 from oslo_log import log
 
@@ -42,15 +42,6 @@ opts = [
         "tag",
         default="atrope",
         help="Tag set on images managed by atrope.",
-    ),
-    cfg.StrOpt(
-        "sharing_model",
-        default="shared",
-        choices=["shared", "community"],
-        help="The sharing model to use for images. 'shared' will use "
-        "Glance image members to share with specific projects. "
-        "'community' will set the image visibility to community, "
-        "making it available to all projects.",
     ),
 ]
 CONF.register_opts(opts, group=CFG_GROUP)
@@ -159,7 +150,7 @@ class Dispatcher(base.BaseDispatcher):
                 project,
             )
 
-    def dispatch(self, image_name, image, is_public, **kwargs):
+    def dispatch(self, image_name, image, sharing_model, **kwargs):
         """Upload an image to the glance service.
 
         If metadata is provided in the kwargs it will be associated with
@@ -168,13 +159,8 @@ class Dispatcher(base.BaseDispatcher):
         LOG.info("Glance dispatching '%s'", image.identifier)
 
         vos = kwargs.pop("vos")
-
-        if CONF.glance.sharing_model == "community":
-            visibility = "community"
-        elif CONF.glance.sharing_model == "shared" and vos:
-            visibility = "shared"
-        else:
-            visibility = "public" if is_public else "private"
+        if vos:
+            sharing_model = "shared"
 
         # TODO(aloga): missing hypervisor type, need list spec first
         metadata = {
@@ -185,7 +171,7 @@ class Dispatcher(base.BaseDispatcher):
             "disk_format": None,
             "os_distro": image.osname.lower(),
             "os_version": image.osversion,
-            "visibility": visibility,
+            "visibility": sharing_model,
             # AppDB properties
             "vmcatcher_event_dc_description": getattr(image, "description", ""),
             "vmcatcher_event_ad_mpuri": image.mpuri,
@@ -251,25 +237,35 @@ class Dispatcher(base.BaseDispatcher):
 
         if not glance_image:
             LOG.debug("Creating image '%s'.", image.identifier)
-            glance_image = self.client.image.create_image(
-                **metadata, allow_duplicates=True
-            )
+            try:
+                glance_image = self.client.image.create_image(
+                    **metadata, allow_duplicates=True
+                )
+            except ForbiddenException as e:
+                LOG.error("Insufficient permissions to create Image in Glance")
+                raise exception.GlancePermissionError(action=e)
 
         if glance_image.status == "queued":
             LOG.debug("Uploading image '%s'.", image.identifier)
             glance_image.upload(self.client.image, data=image_fd)
 
         if glance_image.status == "active":
-            if glance_image.visibility != visibility:
-                LOG.info("Set image '%s' as '%s'", image.identifier, visibility)
-                self.client.image.update_image(glance_image.id, visibility=visibility)
+            if glance_image.visibility != sharing_model:
+                LOG.info("Set image '%s' as '%s'", image.identifier, sharing_model)
+                try:
+                    self.client.image.update_image(
+                        glance_image.id, visibility=sharing_model
+                    )
+                except ForbiddenException as e:
+                    LOG.error("Insufficient permissions to update Image in Glance")
+                    raise exception.GlancePermissionError(action=e)
             LOG.info(
                 "Image '%s' stored in glance as '%s'.",
                 image.identifier,
                 glance_image.id,
             )
 
-        if CONF.glance.sharing_model == "shared":
+        if sharing_model == "shared":
             for vo in vos:
                 project = self.vo_map.get(vo, {}).get("project_id", "")
                 if not project:
@@ -286,7 +282,7 @@ class Dispatcher(base.BaseDispatcher):
                 else:
                     if glance_image.visibility != "shared":
                         LOG.debug("Set image '%s' as shared", image.identifier)
-                        visibility = "shared"
+                        sharing_model = "shared"
                         self.client.image.update_image(
                             glance_image.id, visibility="shared"
                         )
@@ -294,7 +290,7 @@ class Dispatcher(base.BaseDispatcher):
                         image=image, glance_image=glance_image, project=project
                     )
 
-            self._clean_stale_memberships(glance_image.id, vos, visibility)
+            self._clean_stale_memberships(glance_image.id, vos, sharing_model)
 
     def sync(self, image_list):
         """Sync image list with dispatched images.

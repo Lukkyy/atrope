@@ -35,6 +35,7 @@ harbor_project:
     auth_password: "password"
     images: []
     subscribed_images: []
+    sharing_model: "shared" # possible values: "shared", "community", "private", "public"
     vos:
         - "vo_name"
 
