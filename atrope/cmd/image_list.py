@@ -16,7 +16,7 @@
 
 from oslo_config import cfg
 
-from atrope import utils
+from atrope import report, utils
 from atrope.cmd import base
 from atrope.image_list import manager
 
@@ -53,6 +53,28 @@ class CommandImageListIndex(BaseImageListCommand):
                 d[f] = aux
             objs.append(d)
         utils.print_list(objs, fields)
+
+
+class CommandReport(BaseImageListCommand):
+    def __init__(
+        self,
+        parser,
+        name="report",
+        cmd_help="Generate reports about synchronized VMIs.",
+    ):
+        super(CommandReport, self).__init__(parser, name, cmd_help)
+        self.parser.add_argument(
+            "-d",
+            "--detail",
+            dest="detailed",
+            default=False,
+            action="store_true",
+            help="Show detailed information for each image.",
+        )
+
+    def run(self):
+        report_generator = report.ReportGenerator(self.manager)
+        report_generator.run_all_reports()
 
 
 class CommandImageListFetch(BaseImageListCommand):

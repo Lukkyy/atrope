@@ -29,6 +29,7 @@ CONF = cfg.CONF
 
 def add_command_parsers(subparsers):
     image_list.CommandImageListIndex(subparsers)
+    image_list.CommandReport(subparsers)
     image_list.CommandImageListFetch(subparsers)
     image_list.CommandImageListCache(subparsers)
     image_list.CommandDispatch(subparsers)
