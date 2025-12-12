@@ -81,7 +81,9 @@ class ReportGenerator(object):
                     "Image Reference": img.image_ref,
                     "Hash": img.hash,
                     "Disk Format": img.format,
-                    "Annotations": "\n".join([f"{k}: {v}" for k, v in img.annotations.items()])
+                    "Annotations": "\n".join(
+                        [f"{k}: {v}" for k, v in img.annotations.items()]
+                    ),
                 }
                 image_details.append(image_detail)
                 utils.print_dict(image_detail)
@@ -108,7 +110,9 @@ class ReportGenerator(object):
         status_counts = defaultdict(int)
         for img in images:
             status_counts[img.status] += 1
-        report["status_breakdown"] = ", ".join([f"{status}: {count}" for status, count in status_counts.items()])
+        report["status_breakdown"] = ", ".join(
+            [f"{status}: {count}" for status, count in status_counts.items()]
+        )
 
         utils.print_dict(report)
 
@@ -116,12 +120,14 @@ class ReportGenerator(object):
             LOG.info("\n--- Glance Image Details ---")
             image_details = []
             for img in images:
-                image_details.append({
-                    "Name": img.name,
-                    "ID": img.id,
-                    "Size (GB)": round(img.size / (1024**3), 2) if img.size else 0,
-                    "Status": img.status
-                })
+                image_details.append(
+                    {
+                        "Name": img.name,
+                        "ID": img.id,
+                        "Size (GB)": round(img.size / (1024**3), 2) if img.size else 0,
+                        "Status": img.status,
+                    }
+                )
             utils.print_list(image_details, ["Name", "ID", "Size (GB)", "Status"])
 
     def generate_cache_report(self):
@@ -141,6 +147,6 @@ class ReportGenerator(object):
         report = {
             "cache_path": str(cache_path),
             "total_size_gb": round(total_size_bytes / (1024**3), 2),
-            "file_count": file_count
+            "file_count": file_count,
         }
         utils.print_dict(report)
