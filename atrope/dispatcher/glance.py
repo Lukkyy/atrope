@@ -224,7 +224,11 @@ class Dispatcher(base.BaseDispatcher):
                 self.client.image.delete_image(glance_image.id)
                 glance_image = None
 
-        LOG.debug("Converting image '%s'. Configured formats: %s", image.identifier, CONF.glance.formats)
+        LOG.debug(
+            "Converting image '%s'. Configured formats: %s",
+            image.identifier,
+            CONF.glance.formats,
+        )
         metadata["disk_format"], image_fd = image.convert(CONF.glance.formats)
         metadata["disk_format"] = metadata["disk_format"].lower()
         if metadata["disk_format"] not in [
@@ -263,7 +267,9 @@ class Dispatcher(base.BaseDispatcher):
             LOG.debug("Triggering 'glance-direct' import for '%s'.", image.identifier)
             self.client.image.import_image(glance_image, method="glance-direct")
 
-            glance_image = self.client.image.wait_for_status(glance_image, status="active", failures=["error"], interval=5, wait=3600)
+            glance_image = self.client.image.wait_for_status(
+                glance_image, status="active", failures=["error"], interval=5, wait=1800
+            )
 
         if glance_image.status == "active":
             if glance_image.visibility != sharing_model:
