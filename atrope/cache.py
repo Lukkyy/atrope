@@ -54,6 +54,21 @@ class CacheManager(object):
                 utils.makedirs(imgdir)  # FIXME(aloga) pathlib
                 self._valid_paths.append(basedir)
                 self._valid_paths.append(imgdir)
+
+                try:
+                    all_images = lst.get_images()
+                except exception.ImageListNotFetched:
+                    all_images = []
+
+                for img in all_images:
+                    filename = img.get_filename()
+                    img_path = imgdir / filename
+                    self._valid_paths.append(img_path)
+
+                    if imgdir.exists():
+                        for converted_path in imgdir.glob(f"{filename}.*"):
+                            self._valid_paths.append(converted_path)
+
                 for img in lst.get_subscribed_images():
                     try:
                         img.download(imgdir)

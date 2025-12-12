@@ -65,6 +65,13 @@ class BaseImage(object):
         self.verified = False
         self.expired = False
 
+    def get_filename(self):
+        """Get the safe filename for the image."""
+        return "".join(
+            c if c.isalnum() or c in ("-", "_", ".") else "_"
+            for c in self.identifier.replace("/", "_").replace(":", "_")
+        )
+
     @abc.abstractmethod
     def download_and_verify(location):
         """Do the actual download of the image and verify it.
@@ -84,10 +91,7 @@ class BaseImage(object):
         if self.location is not None:
             raise exception.ImageAlreadyDownloaded(location=self.location)
 
-        safe_filename = "".join(
-            c if c.isalnum() or c in ("-", "_", ".") else "_"
-            for c in self.identifier.replace("/", "_").replace(":", "_")
-        )
+        safe_filename = self.get_filename()
         location = os.path.join(dest, safe_filename)
 
         if not os.path.exists(location):
